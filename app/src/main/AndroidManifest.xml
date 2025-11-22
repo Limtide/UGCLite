@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--XML文档的标准声明-->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- manifest根元素开始-->
 
+    <!--定义应用的根配置，所有应用级属性都在这里-->
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,15 +16,18 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.UGCLite">
         <activity
-            android:name=".MainActivity"
+            android:name=".activity.SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.UGCLite">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".MainActivity"/>
+        <activity android:name=".activity.DemoActivity"/>
+
     </application>
 
 </manifest>

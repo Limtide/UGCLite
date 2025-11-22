@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TopTabStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingHorizontal">12dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">#99161823</item>
+    </style>
+
+    <style name="BottomTabStyle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">#99161823</item>
+    </style>
+
+    <style name="CircleImage">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- 顶部状态栏样式 -->
+    <style name="StatusBarStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- 顶部导航栏样式 -->
+    <style name="TopBarStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingHorizontal">12dp</item>
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- 菜单按钮样式 -->
+    <style name="MenuButtonStyle">
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+        <item name="android:padding">10dp</item>
+    </style>
+
+    <!-- 激活的顶部标签样式 -->
+    <style name="ActiveTabStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingHorizontal">6dp</item>
+        <item name="android:paddingVertical">11dp</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#161823</item>
+        <item name="android:fontFamily">"PingFang SC"</item>
+    </style>
+
+    <!-- 搜索按钮样式 -->
+    <style name="SearchButtonStyle">
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+        <item name="android:padding">10dp</item>
+    </style>
+
+    <!-- 底部导航容器样式 -->
+    <style name="BottomNavContainerStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">49dp</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:background">#FFFFFF</item>
+        <item name="android:elevation">8dp</item>
+    </style>
+
+    <!-- 底部导航标签样式 -->
+    <style name="BottomNavTabStyle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">"PingFang SC"</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">#99161823</item>
+    </style>
+
+    <!-- 底部导航激活标签样式 -->
+    <style name="BottomNavActiveTabStyle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">"PingFang SC"</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">#161823</item>
+    </style>
+
+    <!-- 拍摄按钮样式 -->
+    <style name="CaptureButtonStyle">
+        <item name="android:layout_width">78dp</item>
+        <item name="android:layout_height">49dp</item>
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- 拍摄按钮容器样式 -->
+    <style name="CaptureContainerStyle">
+        <item name="android:layout_width">36.79dp</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:background">#161823</item>
+    </style>
+
+    <!-- Home Indicator样式 -->
+    <style name="HomeIndicatorStyle">
+        <item name="android:layout_width">133dp</item>
+        <item name="android:layout_height">5dp</item>
+        <item name="android:background">#000000</item>
+    </style>
+
+    <!-- 列表项样式 -->
+    <style name="VideoTitleStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">#161823</item>
+        <item name="android:fontFamily">"sans-serif-medium"</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:lineSpacingExtra">0dp</item>
+    </style>
+
+    <style name="UserAvatarStyle">
+        <item name="android:layout_width">16dp</item>
+        <item name="android:layout_height">16dp</item>
+        <item name="android:background">#E0E0E0</item>
+        <item name="android:scaleType">centerCrop</item>
+    </style>
+
+    <style name="UserNameStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">#99161823</item>
+        <item name="android:fontFamily">"sans-serif"</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="LikeIconStyle">
+        <item name="android:layout_width">16dp</item>
+        <item name="android:layout_height">16dp</item>
+        <item name="android:src">@drawable/ic_heart_outline</item>
+        <item name="android:tint">#75161823</item>
+    </style>
+
+    <style name="LikeCountStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#BF161823</item>
+        <item name="android:fontFamily">"sans-serif"</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
+    <style name="VideoDurationStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:fontFamily">"sans-serif"</item>
+        <item name="android:background">#80000000</item>
+        <item name="android:paddingHorizontal">6dp</item>
+        <item name="android:paddingVertical">2dp</item>
+        <item name="android:singleLine">true</item>
+    </style>
+</resources>

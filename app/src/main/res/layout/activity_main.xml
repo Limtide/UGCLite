@@ -1,33 +1,165 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/constraint_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
+    android:background="#F2F2F2"
     tools:context=".MainActivity">
 
-    <com.google.android.material.appbar.AppBarLayout
+    <!-- 状态栏占位 -->
+    <View
+        android:id="@+id/status_bar_top"
+        android:layout_width="0dp"
+        android:layout_height="20dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 顶部导航栏 -->
+    <LinearLayout
+        android:id="@+id/top_bar"
+        style="@style/TopBarStyle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/status_bar_top">
+
+        <!--        <androidx.drawerlayout.widget.DrawerLayout-->
+        <!--            android:id="@+id/drawer_layout"-->
+        <!--            android:layout_width="44dp"-->
+        <!--            android:layout_height="44dp">-->
+        <!-- 菜单按钮 -->
+        <ImageView
+            style="@style/MenuButtonStyle"
+            android:src="@drawable/ic_menu"
+            app:tint="#161823" />
+        <!--        </androidx.drawerlayout.widget.DrawerLayout>-->
+        <!-- 标签滚动区域 -->
+        <HorizontalScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="10dp">
+
+                <TextView
+                    style="@style/TopTabStyle"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="11dp"
+                    android:text="北京" />
+
+                <TextView
+                    style="@style/TopTabStyle"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="11dp"
+                    android:text="团购" />
+
+                <TextView
+                    style="@style/TopTabStyle"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="11dp"
+                    android:text="关注" />
+
+                <TextView
+                    style="@style/ActiveTabStyle"
+                    android:text="社区" />
+
+                <TextView
+                    style="@style/TopTabStyle"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="11dp"
+                    android:text="推荐" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- 搜索按钮 -->
+        <ImageView
+            style="@style/SearchButtonStyle"
+            android:src="@drawable/ic_search"
+            app:tint="#161823" />
+    </LinearLayout>
+
+
+    <!-- 内容区域 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fitsSystemWindows="true">
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:paddingHorizontal="4dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav_container"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/top_bar" />
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize" />
+    <!-- 底部导航栏 -->
+    <LinearLayout
+        android:id="@+id/bottom_nav_container"
+        style="@style/BottomNavContainerStyle"
+        app:layout_constraintBottom_toTopOf="@id/home_indicator_container"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
-    </com.google.android.material.appbar.AppBarLayout>
+        <!-- 首页标签 -->
+        <TextView
+            style="@style/BottomNavActiveTabStyle"
+            android:text="首页" />
 
-    <include layout="@layout/content_main" />
+        <!-- 朋友标签 -->
+        <TextView
+            style="@style/BottomNavTabStyle"
+            android:text="朋友" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="@dimen/fab_margin"
-        android:layout_marginBottom="16dp"
-        app:srcCompat="@android:drawable/ic_dialog_email" />
+        <!-- 拍摄按钮 -->
+        <FrameLayout
+            android:id="@+id/capture_button"
+            style="@style/CaptureButtonStyle">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+            <ImageView
+                android:layout_width="36.79dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_capture_plus" />
+        </FrameLayout>
+
+        <!-- 消息标签 -->
+        <TextView
+            style="@style/BottomNavTabStyle"
+            android:text="消息" />
+
+        <!-- 我标签 -->
+        <TextView
+            style="@style/BottomNavTabStyle"
+            android:text="我" />
+    </LinearLayout>
+
+    <!-- Home Indicator 容器 -->
+    <LinearLayout
+        android:id="@+id/home_indicator_container"
+        android:layout_width="match_parent"
+        android:layout_height="34dp"
+        android:background="#FFFFFF"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingBottom="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+
+

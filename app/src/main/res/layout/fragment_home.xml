@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 内容区域 - 使用下拉刷新包装瀑布流 -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:paddingBottom="8dp">
+
+        <!-- 主要内容容器 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- 瀑布流RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp"
+                android:paddingBottom="0dp" />
+
+            <!-- 空状态页面 -->
+            <LinearLayout
+                android:id="@+id/empty_state_layout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone"
+                android:padding="32dp">
+
+                <!-- 空状态图标 -->
+                <ImageView
+                    android:id="@+id/empty_icon"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/ic_empty_state"
+                    android:layout_marginBottom="16dp"
+                    android:alpha="0.6" />
+
+                <!-- 空状态标题 -->
+                <TextView
+                    android:id="@+id/empty_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="暂无内容"
+                    android:textSize="18sp"
+                    android:textColor="#161823"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- 空状态描述 -->
+                <TextView
+                    android:id="@+id/empty_description"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="网络连接异常，请检查网络后重试"
+                    android:textSize="14sp"
+                    android:textColor="#99161823"
+                    android:gravity="center"
+                    android:layout_marginBottom="24dp" />
+
+            </LinearLayout>
+
+            <!-- 底部加载更多提示 -->
+            <LinearLayout
+                android:id="@+id/loading_more_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone"
+                android:background="#FFFFFF">
+
+                <ProgressBar
+                    android:id="@+id/loading_more_progress"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginEnd="8dp"
+                    style="?android:attr/progressBarStyleSmall" />
+
+                <TextView
+                    android:id="@+id/loading_more_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="加载更多中..."
+                    android:textSize="12sp"
+                    android:textColor="#99161823" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+</FrameLayout>

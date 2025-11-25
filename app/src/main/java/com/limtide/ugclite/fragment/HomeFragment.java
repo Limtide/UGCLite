@@ -87,6 +87,12 @@ public class HomeFragment extends Fragment {
     }
 
     @Override
+    public void onPause() {
+        Log.d(TAG,"HomeFragment is onPause");
+        super.onPause();
+    }
+
+    @Override
     public void onStop() {
         super.onStop();
         Log.d(TAG,"HomeFragment is onStop");

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- 昵称输入框 -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/nickname_input_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:boxStrokeColor="@android:color/holo_blue_bright"
+        app:hintTextColor="@android:color/holo_blue_bright"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_nickname"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="昵称"
+            android:inputType="textPersonName"
+            android:maxLines="1"
+            android:textSize="16sp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 签名输入框 -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/signature_input_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        app:boxStrokeColor="@android:color/holo_blue_bright"
+        app:hintTextColor="@android:color/holo_blue_bright"
+        app:helperText="最多100个字符"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_signature"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="个人签名"
+            android:inputType="textMultiLine"
+            android:maxLines="3"
+            android:minLines="2"
+            android:gravity="top"
+            android:textSize="16sp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 提示信息 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="提示：昵称长度2-20个字符，签名最多100个字符"
+        android:textSize="12sp"
+        android:textColor="@android:color/darker_gray"
+        android:layout_marginBottom="8dp"
+        android:gravity="center" />
+
+</LinearLayout>

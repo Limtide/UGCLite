@@ -2,4 +2,27 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="gray">#FF808080</color>
+
+    <!-- Material Design Colors -->
+    <color name="design_default_color_primary">#6200EE</color>
+    <color name="design_default_color_secondary">#03DAC6</color>
+    <color name="design_default_color_on_primary">#FFFFFF</color>
+    <color name="design_default_color_on_secondary">#000000</color>
+    <color name="design_default_color_background">#FFFFFF</color>
+    <color name="design_default_color_on_background">#000000</color>
+    <color name="design_default_color_surface">#FFFFFF</color>
+    <color name="design_default_color_on_surface">#000000</color>
+    <color name="design_default_color_error">#B00020</color>
+    <color name="design_default_color_on_error">#FFFFFF</color>
+
+    <!-- App Specific Colors -->
+    <color name="primary_blue">#FF2196F3</color>
+    <color name="holo_blue_dark">#FF0099CC</color>
+    <color name="holo_blue_light">#FF33B5E5</color>
+    <color name="light_gray">#FFF5F5F5</color>
+    <color name="medium_gray">#FF9E9E9E</color>
+    <color name="dark_gray">#FF666666</color>
+    <color name="darker_gray">#FF424242</color>
+    <color name="background_gray">#FFF8F8F8</color>
 </resources>

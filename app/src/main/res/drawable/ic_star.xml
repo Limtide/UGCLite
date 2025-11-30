@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- drawable/star_2.xml -->
+<vector
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:aapt="http://schemas.android.com/aapt"
+android:width="23.1dp"
+android:height="22.47dp"
+android:viewportWidth="23.1"
+android:viewportHeight="22.47"
+    >
+<group>
+    <clip-path
+        android:pathData="M1.70578 0.75H21.3979C21.9257 0.75 22.3537 1.17792 22.3537 1.70578V20.7598C22.3537 21.2877 21.9257 21.7156 21.3979 21.7156H1.70578C1.17792 21.7156 0.75 21.2877 0.75 20.7598V1.70578C0.75 1.17792 1.17792 0.75 1.70578 0.75Z"
+        />
+</group>
+<path
+    android:pathData="M1.70578 0.75H21.3979C21.9257 0.75 22.3537 1.17792 22.3537 1.70578V20.7598C22.3537 21.2877 21.9257 21.7156 21.3979 21.7156H1.70578C1.17792 21.7156 0.75 21.2877 0.75 20.7598V1.70578C0.75 1.17792 1.17792 0.75 1.70578 0.75Z"
+    android:strokeWidth="1.5"
+    android:strokeColor="#161823"
+    />
+</vector>

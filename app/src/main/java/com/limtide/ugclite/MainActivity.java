@@ -44,15 +44,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Intent intent = getIntent();
-        boolean isOffline = intent.getBooleanExtra("is_offline_mode", false);
-        if (isOffline) {
-            // 断网模式逻辑：比如初始化本地数据库
-            Toast.makeText(this, "当前是：断网模式", Toast.LENGTH_SHORT).show();
-        } else {
-            // 联网模式逻辑：比如初始化网络请求库
-            Toast.makeText(this, "当前是：联网模式", Toast.LENGTH_SHORT).show();
-        }
+//        Intent intent = getIntent();
+//        boolean isOffline = intent.getBooleanExtra("is_offline_mode", false);
+//        if (isOffline) {
+//            // 断网模式逻辑：比如初始化本地数据库
+//            Toast.makeText(this, "当前是：断网模式", Toast.LENGTH_SHORT).show();
+//        } else {
+//            // 联网模式逻辑：比如初始化网络请求库
+//            Toast.makeText(this, "当前是：联网模式", Toast.LENGTH_SHORT).show();
+//        }
 
         // 使用ViewBinding
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -179,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // 使用 replace 方式切换 Fragment
+        // 使用 replace 更换后，Fragment走完了生命周期，无法保存已经浏览的内容。
         if (targetFragment != null) {
             FragmentTransaction transaction = fragmentManager.beginTransaction();
             transaction.replace(R.id.fragment_container, targetFragment);

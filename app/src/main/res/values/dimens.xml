@@ -1,3 +1,6 @@
 <resources>
     <dimen name="fab_margin">16dp</dimen>
+
+    <!-- TabLayout 按钮尺寸 -->
+    <dimen name="tab_max_width">100dp</dimen>
 </resources>

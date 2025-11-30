@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/constraint_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F2F2F2"
+    tools:context=".activity.PostDetailActivity">
+    <!-- 状态栏占位 -->
+    <View
+        android:id="@+id/status_bar_top"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/top_bar"
+
+        style="@style/TopContentStyle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/status_bar_top">
+
+
+        <!-- 返回按钮 -->
+        <ImageView
+            android:id="@+id/back_button"
+            style="@style/BackButtonStyle"
+            android:src="@drawable/ic_back" />
+        <!-- 用户头像 -->
+        <ImageView
+            android:id="@+id/user_avatar"
+            style="@style/UserContentAvatarStyle" />
+        <!-- 用户名 -->
+        <TextView
+            android:id="@+id/user_name"
+            style="@style/UserContentNameStyle"
+            android:text="用户" />
+
+        <TextView
+            android:id="@+id/home_tab"
+            style="@style/FollowStyle"
+            android:text="关注" />
+
+    </LinearLayout>
+    <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/nestedscrollview_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@id/bottom_interaction_bar"
+        app:layout_constraintTop_toBottomOf="@+id/top_bar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+    </androidx.core.widget.NestedScrollView>
+
+
+    <!-- 底部导航栏 -->
+    <LinearLayout
+        android:id="@+id/bottom_interaction_bar"
+        style="@style/BottomNavContainerStyle"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom"
+        android:layout_marginTop="1dp"
+        android:background="#FFFFFF"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="4dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        app:layout_constraintBottom_toTopOf="@id/home_indicator_container"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="121dp"
+            android:layout_height="48dp">
+
+            <View
+                android:id="@+id/left_placeholder"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="16dp"
+                android:layout_weight="1"
+                android:background="@drawable/shape_comment_placeholder_bg"
+                android:backgroundTint="#1618230D" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation ="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/comment_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="点赞"
+                android:focusable="true"
+                android:padding="12dp"
+                android:src="@drawable/ic_comment" />
+            <TextView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:text="125"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation ="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/comment_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="评论"
+                android:focusable="true"
+                android:padding="12dp"
+                android:src="@drawable/ic_comment" />
+            <TextView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:text="125"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation ="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/comment_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="收藏"
+                android:focusable="true"
+                android:padding="12dp"
+                android:src="@drawable/ic_comment" />
+            <TextView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:text="125"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation ="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/comment_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="转发"
+                android:focusable="true"
+                android:padding="12dp"
+                android:src="@drawable/ic_comment" />
+            <TextView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:text="125"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Home Indicator 容器 -->
+    <LinearLayout
+        android:id="@+id/home_indicator_container"
+        android:layout_width="match_parent"
+        android:layout_height="34dp"
+        android:background="#FFFFFF"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

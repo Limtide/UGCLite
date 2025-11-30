@@ -5,6 +5,10 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- manifest根元素开始-->
 
+    <!-- 网络权限 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!--定义应用的根配置，所有应用级属性都在这里-->
     <application
         android:allowBackup="true"
@@ -14,9 +18,10 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.UGCLite">
+        android:theme="@style/Theme.UGCLite"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
-            android:name=".activity.SplashActivity"
+            android:name=".activity.LoginActivity"
             android:exported="true"
             android:theme="@style/Theme.UGCLite">
             <intent-filter>
@@ -28,6 +33,7 @@
         <activity android:name=".MainActivity"/>
         <activity android:name=".activity.DemoActivity"/>
         <activity android:name=".activity.ProfileActivity"/>
+        <activity android:name=".activity.PostDetailActivity"/>
 
     </application>
 

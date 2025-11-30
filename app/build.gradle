@@ -39,6 +39,28 @@ dependencies {
     implementation libs.constraintlayout
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
+    implementation libs.swiperefreshlayout
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // MVVM Architecture
+    implementation libs.lifecycle.viewmodel
+    implementation libs.lifecycle.livedata
+    implementation libs.lifecycle.runtime
+    implementation libs.activity.ktx
+    implementation libs.fragment.ktx
+
+    // Room Database
+    implementation libs.room.runtime
+    implementation libs.room.ktx
+    annotationProcessor libs.room.compiler
+
+    // Glide Image Loading
+    implementation libs.glide
+    annotationProcessor libs.glide.compiler
+
+    // OkHttp Network Library
+    implementation libs.okhttp
+
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

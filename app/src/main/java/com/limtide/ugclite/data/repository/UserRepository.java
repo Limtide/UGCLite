@@ -35,12 +35,6 @@ public class UserRepository {
         executorService = Executors.newSingleThreadExecutor();
     }
 
-    /**
-     * 获取所有活跃用户
-     */
-    public LiveData<List<User>> getAllActiveUsers() {
-        return allActiveUsers;
-    }
 
     /**
      * 用户登录验证

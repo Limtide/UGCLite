@@ -2,7 +2,13 @@ package com.limtide.ugclite.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,31 +36,30 @@ public class LoginActivity extends AppCompatActivity {
     // 自动登录模式标记
     private boolean isAutoLoginMode = false;
 
-    // 离线模式标记
-    protected boolean is_offline_mode = false;
+//    protected boolean is_offline_mode = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate: Activity is being created.");
 
-        // 1. 先初始化PreferenceManager
+        // 初始化PreferenceManager
         preferenceManager = PreferenceManager.getInstance(this);
 
-        // 2. 检查自动登录（首次启动检查在MainActivity中处理）
-        if (checkAndHandleAutoLogin()) {
+        // 检查是否自动登录（首次启动检查在MainActivity中处理）
+        if (checkAutoLogin()) {
             return; // 自动登录成功，直接跳转
         }
 
-        // 3. 如果不能自动登录，显示登录页面
+        // 如果不能自动登录，显示登录页面
         initializeLoginUI();
     }
 
     /**
-     * 检查并处理自动登录
+     * 检查自动登录
      * @return true 如果自动登录成功
      */
-    private boolean checkAndHandleAutoLogin() {
+    private boolean checkAutoLogin() {
         Log.d(TAG, "==== 检查自动登录 ====");
 
         // 使用AppStartupHelper检查启动流程
@@ -64,20 +69,12 @@ public class LoginActivity extends AppCompatActivity {
         if (result.canAutoLogin) {
             // 可以自动登录
             Log.d(TAG, "自动登录成功，用户: " + result.reason);
-
-            // 设置自动登录模式标记，避免UI恢复和用户名重复写入
-            isAutoLoginMode = true;
-
             performAutoLogin(result.reason);
             return true;
         }
 
         // 不能自动登录，需要显示登录页面
         Log.d(TAG, "需要登录，原因: " + result.reason);
-
-        // 重置自动登录模式标记
-        isAutoLoginMode = false;
-
         return false;
     }
 
@@ -90,11 +87,29 @@ public class LoginActivity extends AppCompatActivity {
 
         // 这里可以调用后端API验证token有效性
         // 为了演示，我们直接模拟成功
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
             showLoadingState(false);
-            android.widget.Toast.makeText(this, "欢迎回来，" + username + "！", android.widget.Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "欢迎回来，" + username + "！", Toast.LENGTH_SHORT).show();
             navigateToMain();
         }, 1000);
+    }
+
+    /**
+     * 显示/隐藏加载状态
+     */
+    private void showLoadingState(boolean loading) {
+        if (binding != null) {
+            binding.btnLogin.setEnabled(!loading);
+            binding.etUsername.setEnabled(!loading);
+            binding.etPassword.setEnabled(!loading);
+            binding.cbRememberPassword.setEnabled(!loading);
+
+            if (loading) {
+                binding.btnLogin.setText("自动登录中...");
+            } else {
+                binding.btnLogin.setText("登录");
+            }
+        }
     }
 
     /**
@@ -112,7 +127,7 @@ public class LoginActivity extends AppCompatActivity {
                 new ViewModelProvider.AndroidViewModelFactory(getApplication()))
                 .get(LoginViewModel.class);
 
-        // 恢复记住的登录信息（仅在非自动登录时）
+        // 恢复记住的登录信息
         restoreLoginInfo();
 
         // 设置数据观察
@@ -121,7 +136,6 @@ public class LoginActivity extends AppCompatActivity {
         setupClickListeners();
         // 设置文本监听
         setupTextWatchers();
-        // 设置焦点监听
         setupFocusListeners();
         // 初始化时需要预埋测试数据
         loginViewModel.createTestUsers();
@@ -136,20 +150,14 @@ public class LoginActivity extends AppCompatActivity {
 
         Log.d(TAG, "恢复登录信息 - 用户名: " + savedUsername + ", 记住密码: " + rememberPassword);
 
-        // 恢复用户名（仅在非自动登录时显示，避免自动登录干扰）
-        if (!isAutoLoginMode) {
-            if (savedUsername != null && !savedUsername.trim().isEmpty()) {
-                binding.etUsername.setText(savedUsername);
-                binding.etUsername.setSelection(savedUsername.length()); // 移动光标到末尾
-            } else {
-                Log.d(TAG, "保存的用户名为空或null，不恢复");
-            }
-
-            // 恢复记住密码状态
-            binding.cbRememberPassword.setChecked(rememberPassword);
-        } else {
-            Log.d(TAG, "自动登录模式，跳过UI恢复");
+        // 恢复用户名
+        if (savedUsername != null && !savedUsername.trim().isEmpty()) {
+            binding.etUsername.setText(savedUsername);
+            binding.etUsername.setSelection(savedUsername.length()); // 移动光标到末尾
         }
+
+        // 恢复记住密码状态
+        binding.cbRememberPassword.setChecked(rememberPassword);
     }
 
     /**
@@ -169,7 +177,7 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        loginViewModel.getLoginResult().observe(this, loginResult -> {
+        loginViewModel.getLoginResult().observe(this,loginResult -> {
             if (loginResult != null) {
                 if (loginResult.isSuccess()) {
                     // === 登录成功 ===
@@ -184,6 +192,40 @@ public class LoginActivity extends AppCompatActivity {
                 }
             }
         });
+
+
+//        // 观察成功消息
+//        loginViewModel.getSuccessMessage().observe(this, successMessage -> {
+//            if (successMessage != null && !successMessage.isEmpty()) {
+//                showSuccess(successMessage);
+//                loginViewModel.clearAllMessages();
+//
+//                // 如果是登录成功，保存当前用户信息并跳转到主页面
+//                if (successMessage.contains("登录成功")) {
+//                    // 保存当前登录用户信息
+//                    saveCurrentUser();
+//                    navigateToMain();
+//                }
+//            }
+//        });
+
+        // 观察表单验证状态
+//        loginViewModel.getIsUsernameValid().observe(this, isValid -> {
+//            updateInputLayoutValidation(binding.tilUsername, isValid, "请输入有效的用户名");
+//        });
+
+//        loginViewModel.getIsPasswordValid().observe(this, isValid -> {
+//            updateInputLayoutValidation(binding.tilPassword, isValid, "请输入至少6位密码");
+//        });
+        //
+        loginViewModel.getIsLoginFormValid().observe(this, isValid -> {
+            binding.btnLogin.setEnabled(isValid);
+        });
+
+        // 观察记住密码状态
+        loginViewModel.getRememberPassword().observe(this, remember -> {
+
+        });
     }
 
     /**
@@ -195,6 +237,14 @@ public class LoginActivity extends AppCompatActivity {
             Log.d(TAG, "Login button clicked");
             loginViewModel.login();
         });
+
+//        new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                // v 代表被点击的 View
+//            }
+//        };
+//        binding.btnLogin.setOnClickListener();
 
         // 微信登录点击事件
         binding.btnWechatLogin.setOnClickListener(v -> {
@@ -226,7 +276,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void setupTextWatchers() {
         // 用户名文本变化监听
-        binding.etUsername.addTextChangedListener(new android.text.TextWatcher() {
+        binding.etUsername.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
                 // 输入前的处理逻辑
@@ -236,6 +286,9 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 Log.d(TAG, "Username changed: " + s.toString());
+                Log.d(TAG, "Username start: " + start);
+                Log.d(TAG, "Username before: " + before);
+                Log.d(TAG, "Username count: " + count);
                 loginViewModel.setUsername(s.toString());
             }
 
@@ -247,7 +300,7 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // 密码文本变化监听
-        binding.etPassword.addTextChangedListener(new android.text.TextWatcher() {
+        binding.etPassword.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
                 // 输入前的处理逻辑
@@ -266,52 +319,97 @@ public class LoginActivity extends AppCompatActivity {
                 Log.d(TAG, "after Password changed length: " + s.length());
             }
         });
-    }
-
-    /**
-     * 设置焦点监听器
-     */
-    private void setupFocusListeners() {
-        // 用户名输入框焦点监听
-        binding.etUsername.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus) {
-                binding.tilUsername.setError(null);
-                binding.tilUsername.setErrorEnabled(false);
-            } else {
-                // 失去焦点时，主动调用 ViewModel 的 set 方法
-                String errorMsg = loginViewModel.getErrorMessage().getValue();
-                if (!android.text.TextUtils.isEmpty(loginViewModel.getUsername().getValue())) {
-                    binding.tilUsername.setError(null);
-                    binding.tilUsername.setErrorEnabled(false);
-                } else {
-                    binding.tilUsername.setError(errorMsg != null ? errorMsg : "请输入有效的用户名");
-                    binding.tilUsername.setErrorEnabled(true);
-                }
-            }
-        });
-
-        // 密码输入框焦点监听
-        binding.etPassword.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus) {
-                binding.tilPassword.setError(null);
-                binding.tilPassword.setErrorEnabled(false);
-            } else {
-                String errorMsg = loginViewModel.getErrorMessage().getValue();
-                if (!android.text.TextUtils.isEmpty(loginViewModel.getPassword().getValue())) {
-                    binding.tilPassword.setError(null);
-                    binding.tilPassword.setErrorEnabled(false);
-                } else {
-                    binding.tilPassword.setError(errorMsg != null ? errorMsg : "请输入至少6位密码");
-                    binding.tilPassword.setErrorEnabled(true);
-                }
-            }
-        });
 
         // 记住密码状态变化监听
         binding.cbRememberPassword.setOnCheckedChangeListener((buttonView, isChecked) -> {
             Log.d(TAG, "Remember password changed: " + isChecked);
             loginViewModel.setRememberPassword(isChecked);
         });
+    }
+
+    /**
+     * 更新输入框验证状态
+     */
+    private void updateInputLayoutValidation(com.google.android.material.textfield.TextInputLayout inputLayout,
+                                             boolean isValid, String errorMessage) {
+        if (isValid) {
+            inputLayout.setError(null);
+            inputLayout.setErrorEnabled(false);
+        } else {
+            inputLayout.setError(errorMessage);
+            inputLayout.setErrorEnabled(true);
+        }
+    }
+
+    private void setupFocusListeners() {
+        // 1. 用户名输入框焦点监听
+        binding.etUsername.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                binding.tilUsername.setError(null);
+                binding.tilUsername.setErrorEnabled(false);
+                loginViewModel.clearAllMessages();
+            }
+            else {
+                // 失去焦点时，主动调用 ViewModel 的 set 方法
+                //loginViewModel.setUsername(binding.etUsername.getText().toString());
+
+                // 检查 ViewModel 的验证结果
+                // 使用 Boolean.FALSE.equals 可以安全地处理 null 情况
+                if (Boolean.FALSE.equals(loginViewModel.getIsUsernameValid().getValue())) {
+                    // 直接使用 ViewModel 刚刚生成的错误信息，不再硬编码
+                    String error = loginViewModel.getErrorMessage().getValue();
+                    showError(error);
+                }
+            }
+        });
+
+        // 2. 密码输入框焦点监听
+        binding.etPassword.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                // 获取焦点时清除错误显示
+                binding.tilPassword.setError(null);
+                binding.tilPassword.setErrorEnabled(false);
+                // 可选：清除 ViewModel 中的通用错误信息，避免干扰
+                loginViewModel.clearAllMessages();
+            } else {
+                //loginViewModel.setPassword(binding.etPassword.getText().toString());
+
+                if (Boolean.FALSE.equals(loginViewModel.getIsPasswordValid().getValue())) {
+                    // 从ViewModel获取具体的错误文案（比如"请输入密码"或"长度至少6位"）
+                    // 这样由于逻辑都在ViewModel里，减少View层逻辑
+                    String errorMsg = loginViewModel.getErrorMessage().getValue();
+                    binding.tilPassword.setError(errorMsg != null ? errorMsg : "密码格式错误");
+                }
+            }
+        });
+    }
+
+    /**
+     * 显示错误消息
+     */
+    private void showError(String message) {
+        Log.d(TAG, "Showing error: " + message);
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 显示成功消息
+     */
+    private void showSuccess(String message) {
+        Log.d(TAG, "Showing success: " + message);
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 跳转到主页面
+     */
+    private void navigateToMain() {
+        Log.d(TAG, "Navigating to MainActivity");
+        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+//      intent.putExtra("is_offline_mode", is_offline_mode);
+        startActivity(intent);
+        finish();
     }
 
     /**
@@ -322,66 +420,59 @@ public class LoginActivity extends AppCompatActivity {
         if (username != null && !username.trim().isEmpty()) {
             // 获取用户选择的设置
             boolean rememberLogin = binding.cbRememberPassword.isChecked();
+            boolean autoLogin = binding.cbRememberPassword.isChecked(); // 假设记住密码=自动登录
 
-            // 使用PreferenceManager保存用户信息
+            // 使用PreferenceManager保存完整登录状态
             preferenceManager.saveLoginState(
-                    username.trim(),           // 用户名
-                    generateUserId(username),    // 用户ID（简化生成）
-                    generateSessionToken(),      // Session Token（简化生成）
-                    "normal",                 // 登录方式
-                    rememberLogin,             // 是否记住登录
-                    rememberLogin              // 是否自动登录（和记住密码一致）
+                username.trim(),           // 用户名
+                generateUserId(username),    // 用户ID（简化生成）
+                generateSessionToken(),      // Session Token（简化生成）
+                "normal",                 // 登录方式
+                rememberLogin,             // 是否记住登录
+                autoLogin                 // 是否自动登录
             );
 
             Log.d(TAG, "保存登录状态 - 用户: " + username +
                       ", 记住登录: " + rememberLogin +
-                      ", 自动登录: " + rememberLogin);
+                      ", 自动登录: " + autoLogin);
         }
     }
 
     /**
-     * 检查是否是预设用户名（简化版，只检查demo）
+     * 简化的用户ID生成（实际应该从后端获取）
      */
-    private boolean isPresetUsername(String username) {
-        if (username == null || username.trim().isEmpty()) {
-            return false;
-        }
-
-        // 只检查demo用户名
-        return "demo".equals(username);
+    private String generateUserId(String username) {
+        return "user_" + Math.abs(username.hashCode());
     }
 
     /**
-     * 显示错误消息
+     * 简化的Session Token生成（实际应该从后端获取）
      */
-    private void showError(String message) {
-        Log.d(TAG, "Showing error: " + message);
-        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
+    private String generateSessionToken() {
+        return "token_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 10000);
     }
 
-    /**
-     * 显示成功消息
-     */
-    private void showSuccess(String message) {
-        Log.d(TAG, "Showing success: " + message);
-        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
-    }
-
-    /**
-     * 跳转到主页面
-     */
-    private void navigateToMain() {
-        Log.d(TAG, "Navigating to MainActivity");
-        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
-    }
+//    //个人中心跳转
+//    private void navigateToProfile(User user) {
+//        Log.d(TAG, "Navigating to ProfileActivity for user: " + user.getUsername());
+//        Intent intent = new Intent(LoginActivity.this, ProfileActivity.class);
+//        // 传递用户信息
+//        intent.putExtra("username", user.getUsername());
+//        intent.putExtra("nickname", user.getDisplayName());
+//        intent.putExtra("avatarUrl", user.getAvatarUrl());
+//        intent.putExtra("signature", user.getSignature());
+//        intent.putExtra("is_offline_mode", is_offline_mode);
+//
+//        startActivity(intent);
+//        finish();
+//    }
 
     @Override
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+        // 清除之前的消息
+        loginViewModel.clearAllMessages();
     }
 
     @Override
@@ -389,6 +480,20 @@ public class LoginActivity extends AppCompatActivity {
         super.onPause();
         Log.d(TAG, "onPause");
     }
+
+
+    // private  void enterMainActiviy(){
+    //     if (is_offline_mode){
+    //         Log.d(TAG, "Entering Offline Mode");
+    //     }else {
+    //         Log.d(TAG, "Entering Online Mode");
+    //     }
+    //     //显式Intent跳转到登录页面
+    //     Intent intent = new Intent(LoginActivity.this,LoginActivity.class);
+    //     intent.putExtra("is_offline_mode", is_offline_mode);
+    //     startActivity(intent);
+    //     finish();
+    // }
 
     @Override
     protected void onDestroy() {

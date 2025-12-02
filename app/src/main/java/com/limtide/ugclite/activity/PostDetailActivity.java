@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
+import com.limtide.ugclite.MainActivity;
 import com.limtide.ugclite.R;
 import com.limtide.ugclite.adapter.MediaPagerAdapter;
 import com.limtide.ugclite.data.model.Post;
@@ -68,6 +69,7 @@ public class PostDetailActivity extends AppCompatActivity {
             // 检查Post数据是否有效
             if (currentPost == null) {
                 Log.e(TAG, "Post data is null, finishing activity");
+                Toast.makeText(this, "无法获取作品详情", Toast.LENGTH_SHORT).show();
                 finish();
                 return;
             }
@@ -91,31 +93,46 @@ public class PostDetailActivity extends AppCompatActivity {
         Intent intent = getIntent();
         if (intent != null) {
             Log.d(TAG, "获取Intent传递的数据");
+            Log.d(TAG, "Intent extras: " + intent.getExtras());
 
             // 从HomeFragment传递的Post对象
             currentPost = intent.getParcelableExtra("post");
             if (currentPost != null) {
                 Log.d(TAG, "Post对象获取成功: " + currentPost.title);
+                Log.d(TAG, "Post ID: " + currentPost.postId);
                 mediaClips = currentPost.clips != null ? currentPost.clips : new ArrayList<>();
                 Log.d(TAG, "媒体片段数量: " + mediaClips.size());
             } else {
                 Log.e(TAG, "Post对象为null，可能是Parcelable传递失败");
+                Log.e(TAG, "Intent中是否包含post key: " + (intent.hasExtra("post") ? "是" : "否"));
 
-                // 创建一个示例Post对象用于测试
-                currentPost = new Post();
-                currentPost.title = "示例作品标题";
-                currentPost.content = "这是一个示例作品内容，用于测试详情页面的显示效果。";
-                currentPost.createTime = System.currentTimeMillis() / 1000;
+                // 尝试获取传递的字符串数据作为备用方案
+                String postId = intent.getStringExtra("post_id");
+                String title = intent.getStringExtra("post_title"); // 使用正确的key
+                String content = intent.getStringExtra("post_content"); // 使用正确的key
+                long createTime = intent.getLongExtra("post_create_time", System.currentTimeMillis() / 1000);
 
-                // 创建示例作者
-                currentPost.author = new Post.Author();
-                currentPost.author.nickname = "示例用户";
-                currentPost.author.avatarUrl = "";
+                if (postId != null || title != null || content != null) {
+                    // 使用备用数据创建Post对象
+                    currentPost = new Post();
+                    currentPost.postId = postId != null ? postId : "";
+                    currentPost.title = title != null ? title : "未知标题";
+                    currentPost.content = content != null ? content : "";
+                    currentPost.createTime = createTime;
 
-                // 创建空的媒体列表
-                mediaClips = new ArrayList<>();
-                Log.d(TAG, "创建了示例Post对象用于测试");
+                    // 创建示例作者
+                    currentPost.author = new Post.Author();
+                    currentPost.author.nickname = "未知用户";
+                    currentPost.author.avatarUrl = "";
+
+                    mediaClips = new ArrayList<>();
+                    Log.d(TAG, "使用备用数据创建了Post对象");
+                } else {
+                    Log.w(TAG, "无法获取任何Post数据，Activity将关闭");
+                }
             }
+        } else {
+            Log.e(TAG, "Intent为null");
         }
     }
 
@@ -150,17 +167,16 @@ public class PostDetailActivity extends AppCompatActivity {
         try {
             // 设置作者信息
             if (currentPost.author != null) {
-                // 设置作者昵称 (注意：XML中ID是author_nickname)
-                if (binding.authorNickname != null) {
-                    binding.authorNickname.setText(currentPost.author.nickname != null ? currentPost.author.nickname : "");
+                // 设置作者昵称 - 使用正确的binding字段
+                if (binding.userName != null) {
+                    binding.userName.setText(currentPost.author.nickname != null ? currentPost.author.nickname : "");
                 }
 
-                // 注意：authorAvatar已在XML中移除，根据HTML模板只需要显示昵称
                 Log.d(TAG, "Author nickname set: " + currentPost.author.nickname);
             }
 
             // 设置关注按钮状态和文本
-            updateFollowButton();
+//            updateFollowButton();
         } catch (Exception e) {
             Log.e(TAG, "Error in setupTopNavigation: " + e.getMessage(), e);
         }
@@ -172,124 +188,60 @@ public class PostDetailActivity extends AppCompatActivity {
     private void setupViewPager() {
         if (mediaClips == null || mediaClips.isEmpty()) {
             // 没有媒体内容时隐藏ViewPager
-            binding.mediaViewpager.setVisibility(View.GONE);
-            binding.progressIndicatorContainer.setVisibility(View.GONE);
+            binding.viewPager.setVisibility(View.GONE);
+            binding.homeIndicatorContainer.setVisibility(View.GONE);
             return;
         }
 
         // 创建ViewPager适配器
         mediaPagerAdapter = new MediaPagerAdapter(this, mediaClips);
-        binding.mediaViewpager.setAdapter(mediaPagerAdapter);
+        binding.viewPager.setAdapter(mediaPagerAdapter);
 
-        // 设置进度条指示器
-        setupProgressIndicator();
+//        // 设置进度条指示器
+//        setupProgressIndicator();
 
         // 监听ViewPager页面变化
-        binding.mediaViewpager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+        binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
                 currentMediaPosition = position;
-                updateProgressIndicator();
+//                updateProgressIndicator();
                 Log.d(TAG, "Media page changed to: " + position);
             }
         });
 
         // 设置当前页
-        binding.mediaViewpager.setCurrentItem(currentMediaPosition, false);
+        binding.viewPager.setCurrentItem(currentMediaPosition, false);
     }
 
-    /**
-     * 设置进度条指示器
-     */
-    private void setupProgressIndicator() {
-        if (mediaClips == null || mediaClips.size() <= 1) {
-            binding.progressIndicatorContainer.setVisibility(View.GONE);
-            return;
-        }
-
-        binding.progressIndicatorContainer.setVisibility(View.VISIBLE);
-        updateProgressIndicator();
-    }
-
-    /**
-     * 更新进度条指示器
-     */
-    private void updateProgressIndicator() {
-        if (mediaClips == null || mediaClips.size() <= 1) return;
-
-        // 根据新的XML布局，更新预定义的指示器View
-        // 这里我们使用更简单的方式，只更新第一个指示器的状态
-        // 因为新设计中只有有限的几个指示条
-        if (currentMediaPosition < mediaClips.size()) {
-            // 设置主指示条为白色，其他为半透明
-            binding.mainIndicator.setBackgroundColor(Color.WHITE);
-            binding.secondaryIndicator1.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-            binding.secondaryIndicator2.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-            binding.secondaryIndicator3.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-
-            // 如果有多于1个clip，可以设置对应的指示器为白色
-            // 这里简化处理，根据当前页设置不同的指示器状态
-            switch (currentMediaPosition) {
-                case 0:
-                    binding.mainIndicator.setBackgroundColor(Color.WHITE);
-                    break;
-                case 1:
-                    binding.secondaryIndicator1.setBackgroundColor(Color.WHITE);
-                    binding.mainIndicator.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-                    break;
-                case 2:
-                    binding.secondaryIndicator2.setBackgroundColor(Color.WHITE);
-                    binding.mainIndicator.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-                    break;
-                case 3:
-                    binding.secondaryIndicator3.setBackgroundColor(Color.WHITE);
-                    binding.mainIndicator.setBackgroundColor(Color.parseColor("#57FFFFFF"));
-                    break;
-                default:
-                    binding.mainIndicator.setBackgroundColor(Color.WHITE);
-                    break;
-            }
-        }
-    }
 
     /**
      * 设置内容区域
      */
     private void setupContentArea() {
-        // 设置标题
-        if (binding.postTitle != null) {
-            binding.postTitle.setText(currentPost.title != null ? currentPost.title : "");
+        // 设置标题 - 使用binding中可用的字段
+        if (binding.titleText != null) {
+            binding.titleText.setText(currentPost.title != null ? currentPost.title : "");
         }
 
-        // 设置简短描述
-        if (binding.postBrief != null) {
-            // 简化处理：使用content的前50个字符作为简短描述
-            String briefText = currentPost.content != null && currentPost.content.length() > 50 ?
-                    currentPost.content.substring(0, 50) + "..." :
-                    (currentPost.content != null ? currentPost.content : "");
-            binding.postBrief.setText(briefText);
+        // 设置正文内容 - 使用binding中可用的字段
+        if (binding.contentText != null) {
+            String displayContent = currentPost.content != null ? currentPost.content : "";
+            binding.contentText.setText(displayContent);
         }
 
-        // 设置详细内容（包含话题高亮）
-        if (binding.postContent != null) {
-            setupContentWithHashtags();
-        }
+//        // 设置日期 - 使用binding中可用的字段
+//        if (binding.dateText != null) {
+//            String relativeTime = formatPublishTime(currentPost.createTime);
+//            binding.dateText.setText(getRelativeTime(relativeTime));
+//        }
+//
+//        // 设置时间 - 使用binding中可用的字段
+//        if (binding.timeText != null) {
+//            binding.timeText.setText(getDetailedTime(currentPost.createTime));
+//        }
 
-        // 设置扩展内容
-        if (binding.postExpandedContent != null) {
-            // 使用完整的content作为扩展内容
-            binding.postExpandedContent.setText(currentPost.content != null ? currentPost.content : "");
-        }
-
-        // 设置话题标签
-        if (binding.postTags != null) {
-            // 生成话题标签文本
-            String tagsText = "#塞维利亚 #最美日落 #最难忘的一次旅行"; // 示例文本
-            binding.postTags.setText(tagsText);
-        }
-
-        // 设置发布时间
-        setupPublishTime();
+        Log.d(TAG, "Content area setup completed");
     }
 
     /**
@@ -331,123 +283,117 @@ public class PostDetailActivity extends AppCompatActivity {
                 spannableBuilder.append(content.substring(lastEnd));
             }
 
-            binding.postContent.setText(spannableBuilder);
-            binding.postContent.setMovementMethod(LinkMovementMethod.getInstance());
+//            binding.postContent.setText(spannableBuilder);
+//            binding.postContent.setMovementMethod(LinkMovementMethod.getInstance());
         } else {
             // 没有话题标签，直接显示
-            binding.postContent.setText(content);
+//            binding.postContent.setText(content);
         }
     }
 
     /**
      * 设置发布时间
      */
-    private void setupPublishTime() {
-        String timeText = formatPublishTime(currentPost.createTime);
-        if (binding.publishTime != null) {
-            binding.publishTime.setText(timeText);
-        }
+//    private void setupPublishTime() {
+//        String timeText = formatPublishTime(currentPost.createTime);
+//        if (binding.publishTime != null) {
+//            binding.publishTime.setText(timeText);
+//        }
+//
+//        // 根据HTML模板，还需要设置小时和分钟
+//        if (binding.publishHour != null) {
+//            // 这里简化处理，使用数字2作为示例
+//            binding.publishHour.setText("12");
+//        }
+//        if (binding.publishMinute != null) {
+//            // 这里简化处理，使用数字28作为示例
+//            binding.publishMinute.setText("28");
+//        }
+//    }
 
-        // 根据HTML模板，还需要设置小时和分钟
-        if (binding.publishHour != null) {
-            // 这里简化处理，使用数字2作为示例
-            binding.publishHour.setText("12");
-        }
-        if (binding.publishMinute != null) {
-            // 这里简化处理，使用数字28作为示例
-            binding.publishMinute.setText("28");
-        }
-    }
-
-    /**
-     * 格式化发布时间
-     */
-    private String formatPublishTime(long createTime) {
-        try {
-            long currentTime = System.currentTimeMillis();
-
-            // 如果createTime看起来像秒级时间戳（长度小于11位），转换为毫秒
-            if (createTime < 10000000000L) {
-                createTime = createTime * 1000;
-            }
-
-            long diffMillis = currentTime - createTime;
-            long diffSeconds = diffMillis / 1000;
-
-            if (diffSeconds < 60) { // 1分钟内
-                return "刚刚";
-            } else if (diffSeconds < 3600) { // 1小时内
-                long minutes = diffSeconds / 60;
-                return minutes + "分钟前";
-            } else if (diffSeconds < 86400) { // 24小时内
-                long hours = diffSeconds / 3600;
-                return hours + "小时前";
-            } else if (diffSeconds < 604800) { // 7天内
-                long days = diffSeconds / 86400;
-                return days + "天前";
-            } else {
-                SimpleDateFormat sdf = new SimpleDateFormat("MM-dd", Locale.getDefault());
-                return sdf.format(new Date(createTime));
-            }
-        } catch (Exception e) {
-            return "刚刚";
-        }
-    }
+//    /**
+//     * 格式化发布时间
+//     */
+//    private String formatPublishTime(long createTime) {
+//        try {
+//            long currentTime = System.currentTimeMillis();
+//
+//            // ，转换为毫秒
+//            if (createTime < 10000000000L) {
+//                createTime = createTime * 1000;
+//            }
+//
+//            long diffMillis = currentTime - createTime;
+//            long diffSeconds = diffMillis / 1000;
+//
+//            if (diffSeconds < 60) { // 1分钟内
+//                return "刚刚";
+//            } else if (diffSeconds < 3600) { // 1小时内
+//                long minutes = diffSeconds / 60;
+//                return minutes + "分钟前";
+//            } else if (diffSeconds < 86400) { // 24小时内
+//                long hours = diffSeconds / 3600;
+//                return hours + "小时前";
+//            } else if (diffSeconds < 604800) { // 7天内
+//                long days = diffSeconds / 86400;
+//                return days + "天前";
+//            } else {
+//                SimpleDateFormat sdf = new SimpleDateFormat("MM-dd", Locale.getDefault());
+//                return sdf.format(new Date(createTime));
+//            }
+//        } catch (Exception e) {
+//            return "刚刚";
+//        }
+//    }
 
     /**
      * 设置底部交互栏
      */
     private void setupBottomInteractionBar() {
         // 设置点赞状态
-        updateLikeButton();
+//        updateLikeButton();
     }
 
     /**
      * 更新关注按钮状态
      */
-    private void updateFollowButton() {
-        if (binding.followButton != null) {
-            binding.followButton.setText(isFollowing ? "已关注" : "关注");
-            binding.followButton.setBackgroundColor(isFollowing ?
-                    ContextCompat.getColor(this, R.color.darker_gray) :
-                    ContextCompat.getColor(this, R.color.holo_blue_dark));
-        }
-    }
+//    private void updateFollowButton() {
+//        if (binding.followButton != null) {
+//            binding.followButton.setText(isFollowing ? "已关注" : "关注");
+//            binding.followButton.setBackgroundColor(isFollowing ?
+//                    ContextCompat.getColor(this, R.color.darker_gray) :
+//                    ContextCompat.getColor(this, R.color.holo_blue_dark));
+//        }
+//    }
 
     /**
      * 更新点赞按钮状态
      */
-    private void updateLikeButton() {
-        // 根据新的XML布局，使用collectButton作为点赞按钮
-        if (binding.collectButton != null) {
-            binding.collectButton.setImageResource(isLiked ? R.drawable.ic_like_filled : R.drawable.ic_like);
-
-            // 注意：新布局中没有likeCount，如果需要显示数量可以：
-            // 1. 添加Toast提示
-            // 2. 使用其他方式显示数量变化
-            Log.d(TAG, "Like status updated: " + (isLiked ? "liked" : "not liked"));
-        }
-    }
+//    private void updateLikeButton() {
+//        // 根据新的XML布局，使用collectButton作为点赞按钮
+//        if (binding.collectButton != null) {
+//            binding.collectButton.setImageResource(isLiked ? R.drawable.ic_like_filled : R.drawable.ic_like);
+//
+//            // 注意：新布局中没有likeCount，如果需要显示数量可以：
+//            // 1. 添加Toast提示
+//            // 2. 使用其他方式显示数量变化
+//            Log.d(TAG, "Like status updated: " + (isLiked ? "liked" : "not liked"));
+//        }
+//    }
 
     /**
      * 设置点击监听器
      */
     private void setupClickListeners() {
-        // 返回按钮 - 使用searchButton作为返回按钮（根据HTML模板布局）
-        if (binding.searchButton != null) {
-            binding.searchButton.setOnClickListener(v -> {
-                Log.d(TAG, "Back button clicked");
-                finish();
-            });
-        }
 
-        // 关注按钮
-        if (binding.followButton != null) {
-            binding.followButton.setOnClickListener(v -> {
-                Log.d(TAG, "Follow button clicked");
-                toggleFollowStatus();
-            });
-        }
+
+        binding.backButton.setOnClickListener(v -> {
+            Log.d(TAG, "back button clicked");
+            Intent intent =new Intent(PostDetailActivity.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
+
 
         // 评论按钮（可选功能）
         if (binding.commentButton != null) {
@@ -466,16 +412,16 @@ public class PostDetailActivity extends AppCompatActivity {
         }
 
         // 收藏按钮
-        if (binding.collectButton != null) {
-            binding.collectButton.setOnClickListener(v -> {
+        if (binding.commentButton != null) {
+            binding.commentButton.setOnClickListener(v -> {
                 Log.d(TAG, "Collect button clicked");
                 toggleLikeStatus(); // 使用现有的点赞逻辑
             });
         }
 
         // 更多操作按钮
-        if (binding.moreActionsButton != null) {
-            binding.moreActionsButton.setOnClickListener(v -> {
+        if (binding.commentButton != null) {
+            binding.commentButton.setOnClickListener(v -> {
                 Log.d(TAG, "More actions button clicked");
                 Toast.makeText(this, "更多操作功能开发中", Toast.LENGTH_SHORT).show();
             });
@@ -487,7 +433,7 @@ public class PostDetailActivity extends AppCompatActivity {
      */
     private void toggleFollowStatus() {
         isFollowing = !isFollowing;
-        updateFollowButton();
+//        updateFollowButton();
 
         // 这里应该调用API更新关注状态
         // APIManager.followUser(currentPost.author.userId, isFollowing, success -> {
@@ -507,7 +453,7 @@ public class PostDetailActivity extends AppCompatActivity {
      */
     private void toggleLikeStatus() {
         isLiked = !isLiked;
-        updateLikeButton();
+//        updateLikeButton();
 
         // 这里应该调用API更新点赞状态
         // APIManager.likePost(currentPost.postId, isLiked, success -> {

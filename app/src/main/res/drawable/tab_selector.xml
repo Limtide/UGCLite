@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 选中的状态 - 实心长条 -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#161823" />
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+
+    <!-- 未选中的状态 - 空心长条或半透明 -->
+    <item android:state_selected="false">
+        <shape android:shape="rectangle">
+            <solid android:color="#E0E0E0" />
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+</selector>

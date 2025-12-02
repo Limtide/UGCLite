@@ -19,11 +19,13 @@ import com.limtide.ugclite.activity.ProfileActivity;
 import com.limtide.ugclite.databinding.ActivityMainBinding;
 import com.limtide.ugclite.fragment.HomeFragment;
 import com.limtide.ugclite.fragment.ProfileFragment;
+import com.limtide.ugclite.utils.PreferenceManager;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private ActivityMainBinding binding;
+    private PreferenceManager preferenceManager;
 
     //声明成员变量 声明底部导航栏的Fragment来方便切换
     //实际开发中应该声明成员变量，还是为了减少内存，声明成局部变量？
@@ -44,6 +46,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        Log.d(TAG, "MainActivity创建");
+
+        // 检查并处理首次启动
+        // handleFirstLaunch(); // 暂时注释掉，方法未定义
+
 //        Intent intent = getIntent();
 //        boolean isOffline = intent.getBooleanExtra("is_offline_mode", false);
 //        if (isOffline) {
@@ -63,6 +70,10 @@ public class MainActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
+
+        // 初始化PreferenceManager
+        preferenceManager = PreferenceManager.getInstance(this);
+        // loadUserPreferences(); // 暂时注释掉，方法未定义
 
         // 初始化Fragment成员变量
         initFragments();

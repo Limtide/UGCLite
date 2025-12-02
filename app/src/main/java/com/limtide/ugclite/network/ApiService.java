@@ -69,13 +69,31 @@ public class ApiService {
      * @param callback 回调接口
      */
     public void getFeedData(int count, boolean acceptVideoClip, FeedCallback callback) {
+        getFeedData(count, acceptVideoClip, 0, callback);
+    }
+
+    /**
+     * 获取Feed数据 - GET请求方式（支持分页）
+     * @param count 请求作品数量
+     * @param acceptVideoClip 是否支持视频片段
+     * @param cursor 分页游标（0表示第一页）
+     * @param callback 回调接口
+     */
+    public void getFeedData(int count, boolean acceptVideoClip, int cursor, FeedCallback callback) {
+        Log.d(TAG, "开始获取Feed数据 - GET方式，count: " + count + ", acceptVideoClip: " + acceptVideoClip + ", cursor: " + cursor);
         Log.d(TAG, "开始获取Feed数据 - GET方式，count: " + count + ", acceptVideoClip: " + acceptVideoClip);
 
         // 构建URL和Query参数
-        HttpUrl url = HttpUrl.parse(BASE_URL).newBuilder()
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(BASE_URL).newBuilder()
                 .addQueryParameter("count", String.valueOf(count))
-                .addQueryParameter("accept_video_clip", acceptVideoClip ? "true" : "false")
-                .build();
+                .addQueryParameter("accept_video_clip", acceptVideoClip ? "true" : "false");
+
+        // 添加分页参数（只有非第一页时才添加cursor）
+        if (cursor > 0) {
+            urlBuilder.addQueryParameter("cursor", String.valueOf(cursor));
+        }
+
+        HttpUrl url = urlBuilder.build();
 
         // 构建请求
         Request request = new Request.Builder()
@@ -110,13 +128,30 @@ public class ApiService {
      * @param callback 回调接口
      */
     public void getFeedDataPost(int count, boolean acceptVideoClip, FeedCallback callback) {
-        Log.d(TAG, "开始获取Feed数据 - POST方式，count: " + count + ", acceptVideoClip: " + acceptVideoClip);
+        getFeedDataPost(count, acceptVideoClip, 0, callback);
+    }
+
+    /**
+     * 获取Feed数据 - POST请求方式（支持分页）
+     * @param count 请求作品数量
+     * @param acceptVideoClip 是否支持视频片段
+     * @param cursor 分页游标（0表示第一页）
+     * @param callback 回调接口
+     */
+    public void getFeedDataPost(int count, boolean acceptVideoClip, int cursor, FeedCallback callback) {
+        Log.d(TAG, "开始获取Feed数据 - POST方式，count: " + count + ", acceptVideoClip: " + acceptVideoClip + ", cursor: " + cursor);
 
         // 构建请求体
-        RequestBody formBody = new FormBody.Builder()
+        FormBody.Builder formBuilder = new FormBody.Builder()
                 .add("count", String.valueOf(count))
-                .add("accept_video_clip", acceptVideoClip ? "true" : "false")
-                .build();
+                .add("accept_video_clip", acceptVideoClip ? "true" : "false");
+
+        // 添加分页参数（只有非第一页时才添加cursor）
+        if (cursor > 0) {
+            formBuilder.add("cursor", String.valueOf(cursor));
+        }
+
+        RequestBody formBody = formBuilder.build();
 
         // 构建请求
         Request request = new Request.Builder()

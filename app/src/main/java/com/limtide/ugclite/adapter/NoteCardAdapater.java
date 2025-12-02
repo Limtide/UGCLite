@@ -54,16 +54,28 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
         Post post = postList.get(position);
         NoteCardBinding binding = holder.getBinding();
 
-        // 设置封面图片
-        if (post.clips != null && !post.clips.isEmpty() && post.clips.get(0).type == 0) {
-            // 图片类型
-            Glide.with(context)
-                    .load(post.clips.get(0).url)
-                    .placeholder(R.drawable.ic_empty_state)
-                    .error(R.drawable.ic_empty_state)
-                    .into(binding.coverImage);
+        // 设置封面图片 - 显示图片或视频类型的第一个clip作为封面
+        if (post.clips != null && !post.clips.isEmpty()) {
+            // 查找第一个图片或视频类型的clip
+            for (Post.Clip clip : post.clips) {
+                if (clip.type == 0 || clip.type == 1) {
+                    // 图片类型(type=0)或视频类型(type=1)
+                    if (clip.type == 0) {
+                        // 图片类型，直接加载图片
+                        Glide.with(context)
+                                .load(clip.url)
+                                .placeholder(R.drawable.ic_empty_state)
+                                .error(R.drawable.ic_empty_state)
+                                .into(binding.coverImage);
+                    } else {
+                        // 视频类型，默认显示视频缩略图图标
+                        binding.coverImage.setImageResource(R.drawable.ic_empty_state);
+                    }
+                    break; // 找到第一个图片或视频就停止
+                }
+            }
         } else {
-            // 默认封面或视频封面
+            // 默认封面
             binding.coverImage.setImageResource(R.drawable.ic_empty_state);
         }
 
@@ -87,7 +99,7 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             }
         }
 
-        // 设置点赞数量（这里先用固定值，实际应该从API获取）
+        // 设置点赞数量
         binding.likeCount.setText("128");
 
         // 设置点击事件 - 使用当前position而不是绑定时的position

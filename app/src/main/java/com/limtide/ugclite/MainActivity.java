@@ -94,6 +94,16 @@ public class MainActivity extends AppCompatActivity {
         fragmentManager = getSupportFragmentManager();
         homeFragment = new HomeFragment();
         profileFragment = new ProfileFragment();
+
+        // 初始化时添加所有Fragment，但不显示
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        transaction.add(R.id.fragment_container, homeFragment, "home");
+        transaction.add(R.id.fragment_container, profileFragment, "profile");
+        transaction.hide(profileFragment); // 先隐藏非HomeFragment
+        transaction.commit();
+
+        currentFragment = homeFragment;
+        currentTab = TabState.HOME;
     }
 
     private void setupClickListeners() {
@@ -189,15 +199,21 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-        // 使用 replace 方式切换 Fragment
-        // 使用 replace 更换后，Fragment走完了生命周期，无法保存已经浏览的内容。
+        // 使用 show/hide 方式切换 Fragment，保持Fragment不被销毁
         if (targetFragment != null) {
             FragmentTransaction transaction = fragmentManager.beginTransaction();
-            transaction.replace(R.id.fragment_container, targetFragment);
+
+            // 隐藏当前Fragment，显示目标Fragment
+            if (currentFragment != null && currentFragment != targetFragment) {
+                transaction.hide(currentFragment);
+            }
+            transaction.show(targetFragment);
             transaction.commit();
 
             currentFragment = targetFragment;
             currentTab = tabState;
+
+            Log.d(TAG, "Fragment切换完成: " + targetFragment.getClass().getSimpleName());
         }
     }
 

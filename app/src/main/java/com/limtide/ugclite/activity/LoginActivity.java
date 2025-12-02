@@ -2,6 +2,7 @@ package com.limtide.ugclite.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -131,21 +132,24 @@ public class LoginActivity extends AppCompatActivity {
      * 恢复记住的登录信息
      */
     private void restoreLoginInfo() {
-        String savedUsername = preferenceManager.getCurrentUsername();
+        // 不再恢复保存的用户名，即使用户选择了记住密码
+        // String savedUsername = preferenceManager.getCurrentUsername();
         boolean rememberPassword = preferenceManager.isRememberLogin();
 
-        Log.d(TAG, "恢复登录信息 - 用户名: " + savedUsername + ", 记住密码: " + rememberPassword);
+        Log.d(TAG, "恢复登录信息 - 记住密码: " + rememberPassword + " (不恢复用户名)");
 
-        // 恢复用户名（仅在非自动登录时显示，避免自动登录干扰）
+        // 不再恢复用户名，即使用户选择了记住密码也不恢复
         if (!isAutoLoginMode) {
-            if (savedUsername != null && !savedUsername.trim().isEmpty()) {
-                binding.etUsername.setText(savedUsername);
-                binding.etUsername.setSelection(savedUsername.length()); // 移动光标到末尾
-            } else {
-                Log.d(TAG, "保存的用户名为空或null，不恢复");
-            }
+            // 用户名输入框保持空白，用户需要手动输入
+            // if (savedUsername != null && !savedUsername.trim().isEmpty()) {
+            //     binding.etUsername.setText(savedUsername);
+            //     binding.etUsername.setSelection(savedUsername.length()); // 移动光标到末尾
+            // } else {
+            //     Log.d(TAG, "保存的用户名为空或null，不恢复");
+            // }
+            Log.d(TAG, "不恢复用户名，用户需要手动输入");
 
-            // 恢复记住密码状态
+            // 只恢复记住密码状态
             binding.cbRememberPassword.setChecked(rememberPassword);
         } else {
             Log.d(TAG, "自动登录模式，跳过UI恢复");
@@ -340,6 +344,26 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     /**
+     * 生成用户ID（简化版）
+     */
+    private String generateUserId(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return "user_" + System.currentTimeMillis();
+        }
+        // 简单的哈希生成用户ID
+        return "user_" + Math.abs(username.hashCode()) + "_" + System.currentTimeMillis();
+    }
+
+    /**
+     * 生成会话令牌（简化版）
+     */
+    private String generateSessionToken() {
+        // 使用当前时间戳和随机数生成简单的token
+        return "token_" + System.currentTimeMillis() + "_" +
+               Integer.toString((int)(Math.random() * 10000));
+    }
+
+    /**
      * 检查是否是预设用户名（简化版，只检查demo）
      */
     private boolean isPresetUsername(String username) {
@@ -357,6 +381,27 @@ public class LoginActivity extends AppCompatActivity {
     private void showError(String message) {
         Log.d(TAG, "Showing error: " + message);
         android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 显示加载状态
+     */
+    private void showLoadingState(boolean show) {
+        if (binding != null) {
+            // 如果显示加载状态，禁用所有按钮
+            binding.btnLogin.setEnabled(!show);
+            binding.btnWechatLogin.setEnabled(!show);
+            binding.btnAppleLogin.setEnabled(!show);
+            binding.etUsername.setEnabled(!show);
+            binding.etPassword.setEnabled(!show);
+
+            // 更新登录按钮文本
+            if (show) {
+                binding.btnLogin.setText("登录中...");
+            } else {
+                binding.btnLogin.setText("登录");
+            }
+        }
     }
 
     /**

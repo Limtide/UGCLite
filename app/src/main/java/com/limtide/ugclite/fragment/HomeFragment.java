@@ -3,6 +3,7 @@ package com.limtide.ugclite.fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,6 +36,10 @@ public class HomeFragment extends Fragment {
     private int currentCursor = 0; // 当前分页游标
     private static final int PAGE_SIZE = 20; // 每页数据量
 
+    // 保存滚动状态
+    private int savedFirstVisiblePosition = 0;
+    private Parcelable savedRecyclerViewState;
+
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
@@ -66,13 +71,17 @@ public class HomeFragment extends Fragment {
     }
 
     private void initViews() {
-        // 设置瀑布流布局 - 双列
-        StaggeredGridLayoutManager layoutManager = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
-        binding.recyclerView.setLayoutManager(layoutManager);
+        // 注意：LayoutManager已在XML中配置
 
         // 初始化适配器
         notecardAdapater = new NoteCardAdapater(getContext());
         binding.recyclerView.setAdapter(notecardAdapater);
+
+        // 恢复滚动状态
+        if (savedRecyclerViewState != null) {
+            binding.recyclerView.getLayoutManager().onRestoreInstanceState(savedRecyclerViewState);
+            Log.d(TAG, "恢复RecyclerView滚动状态");
+        }
 
         // 添加滚动监听器实现上拉加载更多
         binding.recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -119,13 +128,12 @@ public class HomeFragment extends Fragment {
         // 初始化ApiService
         apiService = ApiService.getInstance();
 
-        // 初始加载数据
+        // 加载数据（无论是首次还是后续进入）
         if (isFirst) {
-            showEmptyState();
+            Log.d(TAG, "首次进入，开始加载数据");
             isFirst = false;
-        } else {
-            loadFeedData();
         }
+        loadFeedData();
 
     }
 
@@ -398,6 +406,13 @@ public class HomeFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         Log.d(TAG,"HomeFragment is onDestroyView");
+
+        // 保存RecyclerView的滚动状态
+        if (binding.recyclerView != null) {
+            savedRecyclerViewState = binding.recyclerView.getLayoutManager().onSaveInstanceState();
+            Log.d(TAG, "保存RecyclerView滚动状态");
+        }
+
         // 清理ViewBinding以防止内存泄漏
         binding = null;
 

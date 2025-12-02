@@ -50,6 +50,7 @@ public class PostDetailActivity extends AppCompatActivity {
     private List<Post.Clip> mediaClips;
     private int currentMediaPosition = 0;
     private boolean isLiked = false;
+    private boolean isStarred = false;
     private boolean isFollowing = false;
 
     // ViewPager adapter
@@ -172,6 +173,25 @@ public class PostDetailActivity extends AppCompatActivity {
                     binding.userName.setText(currentPost.author.nickname != null ? currentPost.author.nickname : "");
                 }
 
+                // 设置用户头像
+                if (binding.userAvatar != null) {
+                    String avatarUrl = currentPost.author.avatarUrl;
+                    if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
+                        // 使用Glide加载头像
+                        Glide.with(this)
+                                .load(avatarUrl)
+                                .placeholder(R.drawable.ic_user) // 设置占位图
+                                .error(R.drawable.ic_user)      // 设置错误图片
+                                .circleCrop()                             // 圆形裁剪
+                                .into(binding.userAvatar);
+                        Log.d(TAG, "Author avatar loaded: " + avatarUrl);
+                    } else {
+                        // 没有头像时使用默认头像
+                        binding.userAvatar.setImageResource(R.drawable.ic_user);
+                        Log.d(TAG, "Author avatar set to default placeholder");
+                    }
+                }
+
                 Log.d(TAG, "Author nickname set: " + currentPost.author.nickname);
             }
 
@@ -230,16 +250,12 @@ public class PostDetailActivity extends AppCompatActivity {
             binding.contentText.setText(displayContent);
         }
 
-//        // 设置日期 - 使用binding中可用的字段
-//        if (binding.dateText != null) {
-//            String relativeTime = formatPublishTime(currentPost.createTime);
-//            binding.dateText.setText(getRelativeTime(relativeTime));
-//        }
-//
-//        // 设置时间 - 使用binding中可用的字段
-//        if (binding.timeText != null) {
-//            binding.timeText.setText(getDetailedTime(currentPost.createTime));
-//        }
+//        // 设置日期和时间 - 根据新的规则显示
+        if (binding.dateText != null && binding.timeText != null) {
+            String[] dateParts = formatPostTime(currentPost.createTime);
+            binding.dateText.setText(dateParts[0]); // 日期部分
+            binding.timeText.setText(dateParts[1]); // 时间部分
+        }
 
         Log.d(TAG, "Content area setup completed");
     }
@@ -291,60 +307,7 @@ public class PostDetailActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 设置发布时间
-     */
-//    private void setupPublishTime() {
-//        String timeText = formatPublishTime(currentPost.createTime);
-//        if (binding.publishTime != null) {
-//            binding.publishTime.setText(timeText);
-//        }
-//
-//        // 根据HTML模板，还需要设置小时和分钟
-//        if (binding.publishHour != null) {
-//            // 这里简化处理，使用数字2作为示例
-//            binding.publishHour.setText("12");
-//        }
-//        if (binding.publishMinute != null) {
-//            // 这里简化处理，使用数字28作为示例
-//            binding.publishMinute.setText("28");
-//        }
-//    }
-
-//    /**
-//     * 格式化发布时间
-//     */
-//    private String formatPublishTime(long createTime) {
-//        try {
-//            long currentTime = System.currentTimeMillis();
-//
-//            // ，转换为毫秒
-//            if (createTime < 10000000000L) {
-//                createTime = createTime * 1000;
-//            }
-//
-//            long diffMillis = currentTime - createTime;
-//            long diffSeconds = diffMillis / 1000;
-//
-//            if (diffSeconds < 60) { // 1分钟内
-//                return "刚刚";
-//            } else if (diffSeconds < 3600) { // 1小时内
-//                long minutes = diffSeconds / 60;
-//                return minutes + "分钟前";
-//            } else if (diffSeconds < 86400) { // 24小时内
-//                long hours = diffSeconds / 3600;
-//                return hours + "小时前";
-//            } else if (diffSeconds < 604800) { // 7天内
-//                long days = diffSeconds / 86400;
-//                return days + "天前";
-//            } else {
-//                SimpleDateFormat sdf = new SimpleDateFormat("MM-dd", Locale.getDefault());
-//                return sdf.format(new Date(createTime));
-//            }
-//        } catch (Exception e) {
-//            return "刚刚";
-//        }
-//    }
+ 
 
     /**
      * 设置底部交互栏
@@ -352,41 +315,77 @@ public class PostDetailActivity extends AppCompatActivity {
     private void setupBottomInteractionBar() {
         // 设置点赞状态
 //        updateLikeButton();
+
+        // 设置初始数量显示
+        setupCountDisplays();
+    }
+
+    /**
+     * 设置数量显示
+     */
+    private void setupCountDisplays() {
+        // 设置点赞数量
+        if (binding.likeCount != null) {
+            binding.likeCount.setText("25");
+        }
+
+        // 设置评论数量
+        if (binding.commentCount != null) {
+            binding.commentCount.setText("25");
+        }
+
+        // 设置收藏数量
+        if (binding.starCount != null) {
+            binding.starCount.setText("25");
+        }
+
+        // 设置分享数量
+        if (binding.shareCount != null) {
+            binding.shareCount.setText("25");
+        }
     }
 
     /**
      * 更新关注按钮状态
      */
-//    private void updateFollowButton() {
-//        if (binding.followButton != null) {
-//            binding.followButton.setText(isFollowing ? "已关注" : "关注");
-//            binding.followButton.setBackgroundColor(isFollowing ?
-//                    ContextCompat.getColor(this, R.color.darker_gray) :
-//                    ContextCompat.getColor(this, R.color.holo_blue_dark));
-//        }
-//    }
+  private void updateFollowButton() {
+        if (binding.follow != null) {
+            binding.follow.setText(isFollowing ? "已关注" : "关注");
+            binding.follow.setBackgroundColor(isFollowing ?
+                    ContextCompat.getColor(this, R.color.darker_gray) :
+                    ContextCompat.getColor(this, R.color.holo_blue_dark));
+        }
+    }
 
     /**
      * 更新点赞按钮状态
      */
-//    private void updateLikeButton() {
-//        // 根据新的XML布局，使用collectButton作为点赞按钮
-//        if (binding.collectButton != null) {
-//            binding.collectButton.setImageResource(isLiked ? R.drawable.ic_like_filled : R.drawable.ic_like);
-//
-//            // 注意：新布局中没有likeCount，如果需要显示数量可以：
-//            // 1. 添加Toast提示
-//            // 2. 使用其他方式显示数量变化
-//            Log.d(TAG, "Like status updated: " + (isLiked ? "liked" : "not liked"));
-//        }
-//    }
+    private void updateLikeButton() {
+        // 根据新的XML布局，使用likeButton作为点赞按钮
+        // 更新点赞按钮图标
+        if (binding.likeButton != null) {
+            binding.likeButton.setImageResource(isLiked ? R.drawable.ic_like_filled : R.drawable.ic_like);
+            Log.d(TAG, "Like status updated: " + (isLiked ? "liked" : "not liked"));
+        }
+    }
+
+    /**
+     * 更新收藏按钮状态
+     */
+    private void updateStarButton() {
+        // 更新收藏按钮图标
+        if (binding.starButton != null) {
+            binding.starButton.setImageResource(isStarred ? R.drawable.ic_star_filled : R.drawable.ic_star);
+            Log.d(TAG, "Star status updated: " + (isStarred ? "starred" : "not starred"));
+        }
+    }
 
     /**
      * 设置点击监听器
      */
     private void setupClickListeners() {
 
-
+        // 返回按钮 - 恢复跳转功能
         binding.backButton.setOnClickListener(v -> {
             Log.d(TAG, "back button clicked");
             Intent intent =new Intent(PostDetailActivity.this, MainActivity.class);
@@ -394,36 +393,39 @@ public class PostDetailActivity extends AppCompatActivity {
             finish();
         });
 
+        // 快捷评论框
+        if (binding.quickCommentEdit != null) {
+            binding.quickCommentEdit.setOnClickListener(v -> {
+                Log.d(TAG, "quick comment edit clicked");
+            });
+        }
 
-        // 评论按钮（可选功能）
+        // 底部栏按钮 - 只响应点击，不执行具体操作
+        if (binding.likeButton != null) {
+            binding.likeButton.setOnClickListener(v -> {
+                Log.d(TAG, "Like button clicked");
+                // 只响应点击，不执行任何操作
+            });
+        }
+
         if (binding.commentButton != null) {
             binding.commentButton.setOnClickListener(v -> {
                 Log.d(TAG, "Comment button clicked");
-                Toast.makeText(this, "评论功能开发中", Toast.LENGTH_SHORT).show();
+                // 只响应点击，不执行任何操作
             });
         }
 
-        // 分享按钮
+        if (binding.starButton != null) {
+            binding.starButton.setOnClickListener(v -> {
+                Log.d(TAG, "Star button clicked");
+                // 只响应点击，不执行任何操作
+            });
+        }
+
         if (binding.shareButton != null) {
             binding.shareButton.setOnClickListener(v -> {
                 Log.d(TAG, "Share button clicked");
-                sharePost();
-            });
-        }
-
-        // 收藏按钮
-        if (binding.commentButton != null) {
-            binding.commentButton.setOnClickListener(v -> {
-                Log.d(TAG, "Collect button clicked");
-                toggleLikeStatus(); // 使用现有的点赞逻辑
-            });
-        }
-
-        // 更多操作按钮
-        if (binding.commentButton != null) {
-            binding.commentButton.setOnClickListener(v -> {
-                Log.d(TAG, "More actions button clicked");
-                Toast.makeText(this, "更多操作功能开发中", Toast.LENGTH_SHORT).show();
+                // 只响应点击，不执行任何操作
             });
         }
     }
@@ -453,19 +455,38 @@ public class PostDetailActivity extends AppCompatActivity {
      */
     private void toggleLikeStatus() {
         isLiked = !isLiked;
-//        updateLikeButton();
+        updateLikeButton();
 
         // 这里应该调用API更新点赞状态
         // APIManager.likePost(currentPost.postId, isLiked, success -> {
         //     if (success) {
         //         runOnUiThread(() -> {
         //             isLiked = !isLiked;
-        //             updateLikeButton();
         //         });
         //     }
         // });
 
         Toast.makeText(this, isLiked ? "已点赞" : "取消点赞", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 切换收藏状态
+     */
+    private void toggleStarStatus() {
+        isStarred = !isStarred;
+        updateStarButton();
+
+        // 这里应该调用API更新收藏状态
+        // APIManager.starPost(currentPost.postId, isStarred, success -> {
+        //     if (success) {
+        //         runOnUiThread(() -> {
+        //             isStarred = !isStarred;
+        //             updateStarButton();
+        //         });
+        //     }
+        // });
+
+        Toast.makeText(this, isStarred ? "已收藏" : "取消收藏", Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -479,6 +500,86 @@ public class PostDetailActivity extends AppCompatActivity {
         // Intent intent = new Intent(this, HashtagActivity.class);
         // intent.putExtra("hashtag", hashtagText);
         // startActivity(intent);
+    }
+
+    /**
+     * 格式化发布时间 - 根据新的规则显示日期
+     * 返回数组：[日期文案, 时间文案]
+     * 规则：
+     * - 24h内：日期文案="今天"/"昨天"，时间文案=HH:mm
+     * - 7天内：日期文案="x天前"，时间文案=""
+     * - 其余：日期文案=MM-dd，时间文案=""
+     */
+    private String[] formatPostTime(long timestamp) {
+        try {
+            long currentTime = System.currentTimeMillis() / 1000;
+            long timeDiff = currentTime - timestamp;
+
+            // 转换为毫秒用于Date对象
+            Date postDate = new Date(timestamp * 1000);
+
+            // 计算天数差（忽略时间部分）
+            long daysDiff = calculateDaysDiff(timestamp, currentTime);
+
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd", Locale.getDefault());
+
+            if (timeDiff < 60) {
+                // 1分钟内
+                return new String[]{"刚刚", ""};
+            } else if (timeDiff < 3600) {
+                // 1小时内
+                int minutes = (int) (timeDiff / 60);
+                return new String[]{minutes + "分钟前", ""};
+            } else if (timeDiff < 86400) {
+                // 24小时内
+                return new String[]{"今天", timeFormat.format(postDate)};
+            } else if (daysDiff == 1) {
+                // 昨天
+                return new String[]{"昨天", timeFormat.format(postDate)};
+            } else if (daysDiff <= 7) {
+                // 7天内
+                return new String[]{daysDiff + "天前", ""};
+            } else {
+                // 超过7天，显示具体日期
+                return new String[]{dateFormat.format(postDate), ""};
+            }
+        } catch (Exception e) {
+            return new String[]{"刚刚", ""};
+        }
+    }
+
+    /**
+     * 计算天数差（忽略时间部分，只计算日期差）
+     */
+    private long calculateDaysDiff(long timestamp1, long timestamp2) {
+        try {
+            // 转换为毫秒
+            long ms1 = timestamp1 * 1000;
+            long ms2 = timestamp2 * 1000;
+
+            // 使用Calendar计算天数差
+            java.util.Calendar cal1 = java.util.Calendar.getInstance();
+            java.util.Calendar cal2 = java.util.Calendar.getInstance();
+            cal1.setTimeInMillis(ms1);
+            cal2.setTimeInMillis(ms2);
+
+            // 设置时间为0点，只比较日期
+            cal1.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            cal1.set(java.util.Calendar.MINUTE, 0);
+            cal1.set(java.util.Calendar.SECOND, 0);
+            cal1.set(java.util.Calendar.MILLISECOND, 0);
+
+            cal2.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            cal2.set(java.util.Calendar.MINUTE, 0);
+            cal2.set(java.util.Calendar.SECOND, 0);
+            cal2.set(java.util.Calendar.MILLISECOND, 0);
+
+            long diffInMillis = cal2.getTimeInMillis() - cal1.getTimeInMillis();
+            return diffInMillis / (24 * 60 * 60 * 1000);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     /**

@@ -16,6 +16,7 @@ import com.limtide.ugclite.R;
 import com.limtide.ugclite.activity.PostDetailActivity;
 import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.NoteCardBinding;
+import com.limtide.ugclite.utils.LikeManager;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -32,14 +33,18 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
     private List<Post> postList;
     private Context context;
     private OnItemClickListener onItemClickListener;
+    private LikeManager likeManager;
 
     public interface OnItemClickListener {
         void onItemClick(Post post, int position);
     }
 
     public NoteCardAdapater(Context context) {
+        Log.d(TAG, "NoteCardAdapter constructor called - Context: " + (context != null ? context.getClass().getSimpleName() : "null"));
         this.context = context;
         this.postList = new ArrayList<>();
+        this.likeManager = LikeManager.getInstance(context);
+        Log.d(TAG, "NoteCardAdapter initialized successfully - LikeManager: " + (likeManager != null ? "initialized" : "failed"));
     }
 
     @NonNull
@@ -79,8 +84,14 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             binding.coverImage.setImageResource(R.drawable.ic_empty_state);
         }
 
-        // 设置标题
-        binding.videoTitle.setText(post.title != null ? post.title : "");
+        // 设置标题 - 优先展示标题，没有标题时展示正文
+        String displayText = "";
+        if (post.title != null && !post.title.trim().isEmpty()) {
+            displayText = post.title.trim();
+        } else if (post.content != null && !post.content.trim().isEmpty()) {
+            displayText = post.content.trim();
+        }
+        binding.videoTitle.setText(displayText);
 
         // 设置用户信息
         if (post.author != null) {
@@ -99,36 +110,149 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             }
         }
 
-        // 设置点赞数量
-        binding.likeCount.setText("128");
+        // 设置点赞状态和数量
+        updateLikeDisplay(binding, post);
 
-        // 设置点击事件 - 使用当前position而不是绑定时的position
         final int currentPosition = holder.getAdapterPosition();
-        binding.getRoot().setOnClickListener(v -> {
+
+        // 设置点赞区域点击事件（图标和数量）- 使用binding绑定
+        binding.likeIcon.setOnClickListener(v -> {
+            Log.d(TAG, "Like icon clicked");
             int clickedPosition = holder.getAdapterPosition();
             Post clickedPost = clickedPosition != RecyclerView.NO_POSITION ? postList.get(clickedPosition) : post;
 
-            Log.d(TAG, "Card clicked at position: " + clickedPosition + ", post: " + (clickedPost != null ? clickedPost.title : "null"));
-
-            if (onItemClickListener != null) {
-                Log.d(TAG, "Calling onItemClickListener");
-                onItemClickListener.onItemClick(clickedPost, clickedPosition);
+            if (clickedPost != null) {
+                Log.d(TAG, "Like icon clicked - Post: " + clickedPost.title +
+                          ", Position: " + clickedPosition +
+                          ", PostId: " + clickedPost.postId);
+                handleLikeClick(clickedPost, binding);
             } else {
-                Log.d(TAG, "onItemClickListener is null, using direct navigation");
-                // 如果没有设置监听器，直接跳转到详情页
-                navigateToDetailPage(clickedPost);
+                Log.w(TAG, "Like icon clicked but post is null or position invalid");
+            }
+        });
+
+        binding.likeCount.setOnClickListener(v -> {
+            Log.d(TAG, "Like count clicked");
+            int clickedPosition = holder.getAdapterPosition();
+            Post clickedPost = clickedPosition != RecyclerView.NO_POSITION ? postList.get(clickedPosition) : post;
+
+            if (clickedPost != null) {
+                Log.d(TAG, "Like count clicked - Post: " + clickedPost.title +
+                          ", Position: " + clickedPosition +
+                          ", PostId: " + clickedPost.postId);
+                handleLikeClick(clickedPost, binding);
+            } else {
+                Log.w(TAG, "Like count clicked but post is null or position invalid");
+            }
+        });
+
+        // 设置卡片整体点击事件，但排除点赞区域
+        holder.itemView.setOnClickListener(v -> {
+            Log.d(TAG, "Card main area clicked");
+            int clickedPosition = holder.getAdapterPosition();
+            Post clickedPost = clickedPosition != RecyclerView.NO_POSITION ? postList.get(clickedPosition) : post;
+
+            if (clickedPost != null) {
+                Log.d(TAG, "Card main area clicked - Post: " + clickedPost.title +
+                          ", Position: " + clickedPosition +
+                          ", PostId: " + clickedPost.postId +
+                          ", Author: " + (clickedPost.author != null ? clickedPost.author.nickname : "unknown"));
+
+                // 首先检查是否有点击监听器设置
+                if (onItemClickListener != null) {
+                    Log.d(TAG, "Calling onItemClickListener for post navigation");
+                    onItemClickListener.onItemClick(clickedPost, clickedPosition);
+                } else {
+                    Log.d(TAG, "No onItemClickListener set, using direct navigation");
+                    // 如果没有设置监听器，直接跳转到详情页
+                    navigateToDetailPage(clickedPost);
+                }
+            } else {
+                Log.w(TAG, "Card main area clicked but post is null or position invalid");
             }
         });
 
         // 设置长按事件作为备用的调试手段
         binding.getRoot().setOnLongClickListener(v -> {
+            Log.d(TAG, "Card long pressed");
             int longPressedPosition = holder.getAdapterPosition();
             Post longPressedPost = longPressedPosition != RecyclerView.NO_POSITION ? postList.get(longPressedPosition) : post;
-            Log.d(TAG, "Card long pressed at position: " + longPressedPosition + ", post: " + (longPressedPost != null ? longPressedPost.title : "null"));
-            return true;
+
+            if (longPressedPost != null) {
+                Log.d(TAG, "Card long pressed - Post: " + longPressedPost.title +
+                          ", Position: " + longPressedPosition +
+                          ", PostId: " + longPressedPost.postId +
+                          ", Author: " + (longPressedPost.author != null ? longPressedPost.author.nickname : "unknown") +
+                          ", Clips: " + (longPressedPost.clips != null ? longPressedPost.clips.size() : 0));
+            } else {
+                Log.w(TAG, "Card long pressed but post is null or position invalid");
+            }
+
+            return true; // 消费长按事件
         });
 
         Log.d(TAG, "Binding post at position " + position + ": " + post.title);
+    }
+
+    /**
+     * 更新点赞显示状态和数量
+     */
+    private void updateLikeDisplay(NoteCardBinding binding, Post post) {
+        if (post == null || binding == null) {
+            Log.w(TAG, "updateLikeDisplay: binding or post is null");
+            return;
+        }
+
+        boolean isLiked = likeManager.isPostLiked(post.postId);
+        int likeCount = likeManager.getLikeCount(post.postId);
+
+        // 设置点赞图标
+        int iconResource = isLiked ? R.drawable.ic_like_filled : R.drawable.ic_like;
+        binding.likeIcon.setImageResource(iconResource);
+
+        // 设置点赞数量 - 格式化大数字显示
+        String likeCountStr = formatLikeCount(likeCount);
+        binding.likeCount.setText(likeCountStr);
+
+        Log.d(TAG, "Like display updated - Post: " + post.title +
+                  ", PostId: " + post.postId +
+                  ", IsLiked: " + isLiked +
+                  ", LikeCount: " + likeCount +
+                  ", IconResource: " + (isLiked ? "ic_like_filled" : "ic_like") +
+                  ", DisplayText: " + likeCountStr);
+    }
+
+    /**
+     * 处理点赞点击事件
+     */
+    private void handleLikeClick(Post post, NoteCardBinding binding) {
+        if (post == null || binding == null) {
+            Log.w(TAG, "handleLikeClick: binding or post is null");
+            return;
+        }
+
+        // 获取切换前的状态
+        boolean wasLiked = likeManager.isPostLiked(post.postId);
+        int oldLikeCount = likeManager.getLikeCount(post.postId);
+
+        Log.d(TAG, "Like click processing - Before toggle - Post: " + post.title +
+                  ", PostId: " + post.postId +
+                  ", WasLiked: " + wasLiked +
+                  ", OldLikeCount: " + oldLikeCount);
+
+        // 切换点赞状态
+        boolean newLikeStatus = likeManager.toggleLike(post.postId);
+        int newLikeCount = likeManager.getLikeCount(post.postId);
+
+        // 更新显示
+        updateLikeDisplay(binding, post);
+
+        Log.d(TAG, "Like click processed - After toggle - Post: " + post.title +
+                  ", PostId: " + post.postId +
+                  ", NewLikeStatus: " + newLikeStatus +
+                  ", NewLikeCount: " + newLikeCount +
+                  ", CountChange: " + (newLikeStatus ? "+1" : "-1") +
+                  ", TotalLikedPosts: " + likeManager.getAllLikedPosts().size());
     }
 
     /**
@@ -136,9 +260,17 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
      */
     private void navigateToDetailPage(Post post) {
         if (context == null || post == null) {
-            Log.e(TAG, "Cannot navigate to detail: context or post is null");
+            Log.e(TAG, "navigateToDetailPage: context or post is null - Context: " + (context != null ? "not null" : "null") +
+                      ", Post: " + (post != null ? "not null" : "null"));
             return;
         }
+
+        Log.d(TAG, "Starting navigation to PostDetailActivity");
+        Log.d(TAG, "Navigation target - Post: " + post.title +
+                  ", PostId: " + post.postId +
+                  ", Author: " + (post.author != null ? post.author.nickname : "unknown") +
+                  ", Clips: " + (post.clips != null ? post.clips.size() : 0) +
+                  ", Content length: " + (post.content != null ? post.content.length() : 0));
 
         try {
             Intent intent = new Intent(context, PostDetailActivity.class);
@@ -152,12 +284,14 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             intent.putExtra("post_content", post.content);
             intent.putExtra("post_create_time", post.createTime);
 
-            Log.d(TAG, "Navigating to detail page for post: " + post.title);
-            Log.d(TAG, "Post ID: " + post.postId + ", clips size: " + (post.clips != null ? post.clips.size() : 0));
+            Log.d(TAG, "Intent created with extras - post_id: " + post.postId +
+                      ", post_title: " + post.title +
+                      ", context: " + context.getClass().getSimpleName());
 
             context.startActivity(intent);
+            Log.d(TAG, "Successfully started PostDetailActivity for post: " + post.title);
         } catch (Exception e) {
-            Log.e(TAG, "Error starting PostDetailActivity: " + e.getMessage(), e);
+            Log.e(TAG, "Error starting PostDetailActivity for post: " + post.title + " - Error: " + e.getMessage(), e);
         }
     }
 
@@ -219,6 +353,7 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
      * 设置点击监听器
      */
     public void setOnItemClickListener(OnItemClickListener listener) {
+        Log.d(TAG, "setOnItemClickListener called - Listener: " + (listener != null ? "not null" : "null"));
         this.onItemClickListener = listener;
     }
 
@@ -231,6 +366,21 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             return sdf.format(new Date(timestamp * 1000));
         } catch (Exception e) {
             return "刚刚";
+        }
+    }
+
+    /**
+     * 格式化点赞数量显示
+     */
+    private String formatLikeCount(int count) {
+        if (count < 1000) {
+            return String.valueOf(count);
+        } else if (count < 10000) {
+            return String.format("%.1fK", count / 1000.0);
+        } else if (count < 1000000) {
+            return String.format("%dK", count / 1000);
+        } else {
+            return String.format("%.1fM", count / 1000000.0);
         }
     }
 

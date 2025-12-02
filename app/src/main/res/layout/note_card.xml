@@ -52,19 +52,17 @@
                 android:ellipsize="end" />
 
             <!-- 用户信息和点赞区域 -->
-            <LinearLayout
+            <RelativeLayout
                 android:layout_width="173dp"
                 android:layout_height="20dp"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:weightSum="1">
+                android:layout_marginTop="6dp">
 
                 <!-- 用户头像和名称 -->
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:id="@+id/user_info_layout"
+                    android:layout_width="match_parent"
                     android:layout_height="16dp"
-                    android:layout_weight="1"
+                    android:layout_toStartOf="@id/like_layout"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:layout_marginEnd="4dp">
@@ -78,17 +76,19 @@
                     <!-- 用户名 -->
                     <TextView
                         android:id="@+id/user_name"
-                        style="@style/UserNameStyle" />
+                        style="@style/UserNameStyle"
+                        android:layout_width="match_parent" />
 
                 </LinearLayout>
 
                 <!-- 点赞 -->
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:id="@+id/like_layout"
+                    android:layout_width="50dp"
                     android:layout_height="17dp"
+                    android:layout_alignParentEnd="true"
                     android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginStart="4dp">
+                    android:gravity="center_vertical">
 
                     <!-- 点赞图标 -->
                     <ImageView
@@ -103,7 +103,7 @@
 
                 </LinearLayout>
 
-            </LinearLayout>
+            </RelativeLayout>
 
         </LinearLayout>
 

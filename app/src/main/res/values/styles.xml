@@ -143,12 +143,12 @@
     <style name="UserAvatarStyle">
         <item name="android:layout_width">16dp</item>
         <item name="android:layout_height">16dp</item>
-        <item name="android:background">#E0E0E0</item>
+        <item name="android:background">@android:color/transparent</item>
         <item name="android:scaleType">centerCrop</item>
     </style>
     <!-- 用户名样式 -->
     <style name="UserNameStyle">
-        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textSize">11sp</item>
         <item name="android:textColor">#99161823</item>
@@ -162,17 +162,18 @@
         <item name="android:layout_width">16dp</item>
         <item name="android:layout_height">16dp</item>
         <item name="android:src">@drawable/ic_heart_outline</item>
-        <item name="android:tint">#75161823</item>
+        <item name="android:tint">@null</item>
     </style>
     <!-- 点赞数量样式 -->
     <style name="LikeCountStyle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">#BF161823</item>
         <item name="android:fontFamily">"sans-serif"</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:maxLines">1</item>
     </style>
 
     <!-- TabLayout 样式 -->

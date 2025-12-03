@@ -3,6 +3,7 @@ package com.limtide.ugclite.data.model;
 import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.gson.annotations.SerializedName;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +11,7 @@ import java.util.List;
  * 作品实体类
  * 对应 JSON 中的 "post_list" 数组里的每一项
  */
-public class Post implements Parcelable {
+public class Post implements Parcelable, Serializable {
 
     // --- 核心字段 ---
 
@@ -104,7 +105,7 @@ public class Post implements Parcelable {
     };
 
     // 为内部类也实现Parcelable接口
-    public static class Author implements Parcelable {
+    public static class Author implements Parcelable, Serializable {
         @SerializedName("user_id")
         public String userId;
 
@@ -152,7 +153,7 @@ public class Post implements Parcelable {
         };
     }
 
-    public static class Hashtag implements Parcelable {
+    public static class Hashtag implements Parcelable, Serializable {
         @SerializedName("start")
         public int start; // 高亮起始位置
 
@@ -188,7 +189,7 @@ public class Post implements Parcelable {
         };
     }
 
-    public static class Clip implements Parcelable {
+    public static class Clip implements Parcelable, Serializable {
         @SerializedName("type")
         public int type; // 0：图片，1：视频
 
@@ -243,7 +244,7 @@ public class Post implements Parcelable {
         };
     }
 
-    public static class Music implements Parcelable {
+    public static class Music implements Parcelable, Serializable {
         @SerializedName("volume")
         public int volume;
 

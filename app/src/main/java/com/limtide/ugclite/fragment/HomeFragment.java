@@ -9,6 +9,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.io.Serializable;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -27,6 +29,15 @@ import java.util.List;
 public class HomeFragment extends Fragment {
 
     private static final String TAG = "HomeFragment";
+
+    // 状态保存的Key常量
+    private static final String KEY_IS_FIRST = "is_first";
+    private static final String KEY_IS_LOADING = "is_loading";
+    private static final String KEY_HAS_MORE_DATA = "has_more_data";
+    private static final String KEY_CURRENT_CURSOR = "current_cursor";
+    private static final String KEY_RECYCLER_STATE = "recycler_state";
+    private static final String KEY_POSTS_DATA = "posts_data";
+
     private FragmentHomeBinding binding;
     private NoteCardAdapater notecardAdapater;
     private ApiService apiService;
@@ -40,6 +51,9 @@ public class HomeFragment extends Fragment {
     private int savedFirstVisiblePosition = 0;
     private Parcelable savedRecyclerViewState;
 
+    // 保存的数据列表
+    private List<Post> savedPosts = new ArrayList<>();
+
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
@@ -50,6 +64,25 @@ public class HomeFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG,"HomeFragment is onCreate");
+
+        // 恢复保存的状态
+        if (savedInstanceState != null) {
+            isFirst = savedInstanceState.getBoolean(KEY_IS_FIRST, true);
+            isLoading = savedInstanceState.getBoolean(KEY_IS_LOADING, false);
+            hasMoreData = savedInstanceState.getBoolean(KEY_HAS_MORE_DATA, true);
+            currentCursor = savedInstanceState.getInt(KEY_CURRENT_CURSOR, 0);
+            savedRecyclerViewState = savedInstanceState.getParcelable(KEY_RECYCLER_STATE);
+
+            // 恢复数据列表
+            savedPosts.clear();
+            ArrayList<Post> posts = (ArrayList<Post>) savedInstanceState.getSerializable(KEY_POSTS_DATA);
+            if (posts != null) {
+                savedPosts.addAll(posts);
+                Log.d(TAG, "恢复保存的数据，数量: " + savedPosts.size());
+            }
+
+            Log.d(TAG, "状态恢复完成 - isFirst: " + isFirst + ", cursor: " + currentCursor + ", posts: " + savedPosts.size());
+        }
     }
 
 
@@ -116,7 +149,18 @@ public class HomeFragment extends Fragment {
                 try {
                     // 跳转到详情页面
                     Intent intent = new Intent(requireActivity(), PostDetailActivity.class);
-                    intent.putExtra("post", post); // 传递整个Post对象
+                    intent.putExtra("post", (Serializable) post); // 明确转换为Serializable
+
+                    // 保存当前滚动位置
+                    StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) binding.recyclerView.getLayoutManager();
+                    if (layoutManager != null) {
+                        int[] positions = layoutManager.findFirstVisibleItemPositions(null);
+                        if (positions != null && positions.length > 0) {
+                            savedFirstVisiblePosition = positions[0];
+                            Log.d(TAG, "保存当前位置: " + savedFirstVisiblePosition);
+                        }
+                    }
+
                     startActivity(intent);
                     Log.d(TAG, "Successfully started PostDetailActivity");
                 } catch (Exception e) {
@@ -128,12 +172,29 @@ public class HomeFragment extends Fragment {
         // 初始化ApiService
         apiService = ApiService.getInstance();
 
-        // 加载数据（无论是首次还是后续进入）
-        if (isFirst) {
-            Log.d(TAG, "首次进入，开始加载数据");
-            isFirst = false;
+        // 根据保存的状态决定是否重新加载数据
+        if (!savedPosts.isEmpty()) {
+            // 有保存的数据，直接恢复显示
+            Log.d(TAG, "恢复保存的数据，数量: " + savedPosts.size());
+            notecardAdapater.setPosts(savedPosts);
+            hideEmptyState();
+
+            // 恢复滚动状态
+            if (savedRecyclerViewState != null) {
+                binding.recyclerView.getLayoutManager().onRestoreInstanceState(savedRecyclerViewState);
+                Log.d(TAG, "恢复RecyclerView滚动状态");
+            }
+
+            // 刷新所有可见item的点赞状态（与PostDetailActivity同步）
+            refreshVisibleLikeStatus();
+        } else {
+            // 没有保存的数据，重新加载
+            if (isFirst) {
+                Log.d(TAG, "首次进入，开始加载数据");
+                isFirst = false;
+            }
+            loadFeedData();
         }
-        loadFeedData();
 
     }
 
@@ -445,6 +506,84 @@ public class HomeFragment extends Fragment {
     public void onDetach() {
         super.onDetach();
         Log.d(TAG,"HomeFragment is onDetach");
+    }
+
+    /**
+     * 保存Fragment状态
+     */
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        Log.d(TAG, "保存Fragment状态");
+
+        // 保存状态变量
+        outState.putBoolean(KEY_IS_FIRST, isFirst);
+        outState.putBoolean(KEY_IS_LOADING, isLoading);
+        outState.putBoolean(KEY_HAS_MORE_DATA, hasMoreData);
+        outState.putInt(KEY_CURRENT_CURSOR, currentCursor);
+
+        // 保存RecyclerView状态
+        if (binding.recyclerView != null && binding.recyclerView.getLayoutManager() != null) {
+            savedRecyclerViewState = binding.recyclerView.getLayoutManager().onSaveInstanceState();
+            outState.putParcelable(KEY_RECYCLER_STATE, savedRecyclerViewState);
+            Log.d(TAG, "保存RecyclerView状态");
+        }
+
+        // 保存数据列表
+        if (notecardAdapater != null) {
+            List<Post> currentPosts = new ArrayList<>();
+            for (int i = 0; i < notecardAdapater.getItemCount(); i++) {
+                currentPosts.add(notecardAdapater.getPost(i));
+            }
+            outState.putSerializable(KEY_POSTS_DATA, new ArrayList<>(currentPosts));
+            Log.d(TAG, "保存数据列表，数量: " + currentPosts.size());
+        }
+
+        Log.d(TAG, "状态保存完成 - isFirst: " + isFirst + ", cursor: " + currentCursor);
+    }
+
+    /**
+     * 刷新所有可见item的点赞状态（与PostDetailActivity同步）
+     */
+    private void refreshVisibleLikeStatus() {
+        if (notecardAdapater == null || binding.recyclerView == null) {
+            return;
+        }
+
+        // 通知适配器刷新所有可见item
+        StaggeredGridLayoutManager layoutManager =
+            (StaggeredGridLayoutManager) binding.recyclerView.getLayoutManager();
+
+        if (layoutManager != null) {
+            int[] firstVisiblePositions = layoutManager.findFirstVisibleItemPositions(null);
+            int[] lastVisiblePositions = layoutManager.findLastVisibleItemPositions(null);
+
+            if (firstVisiblePositions != null && lastVisiblePositions != null) {
+                for (int i = 0; i < firstVisiblePositions.length; i++) {
+                    int firstPos = firstVisiblePositions[i];
+                    int lastPos = lastVisiblePositions[i];
+
+                    for (int pos = firstPos; pos <= lastPos; pos++) {
+                        if (pos < notecardAdapater.getItemCount()) {
+                            notecardAdapater.notifyItemChanged(pos);
+                        }
+                    }
+                }
+            }
+        }
+
+        Log.d(TAG, "已刷新所有可见item的点赞状态");
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "HomeFragment is onResume");
+
+        // 从PostDetailActivity返回时，刷新点赞状态
+        if (notecardAdapater != null && notecardAdapater.getItemCount() > 0) {
+            refreshVisibleLikeStatus();
+        }
     }
 
 }

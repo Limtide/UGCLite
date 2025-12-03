@@ -7,6 +7,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
+import java.io.Serializable;
+
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -76,12 +78,17 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
                         // 视频类型，默认显示视频缩略图图标
                         binding.coverImage.setImageResource(R.drawable.ic_empty_state);
                     }
+
+                    // 动态调整封面容器高度，支持3:4到4:3的宽高比
+                    adjustCoverHeight(binding.coverContainer, clip);
                     break; // 找到第一个图片或视频就停止
                 }
             }
         } else {
             // 默认封面
             binding.coverImage.setImageResource(R.drawable.ic_empty_state);
+            // 使用默认比例1:1
+            adjustCoverHeight(binding.coverContainer, null);
         }
 
         // 设置标题 - 优先展示标题，没有标题时展示正文
@@ -91,7 +98,22 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
         } else if (post.content != null && !post.content.trim().isEmpty()) {
             displayText = post.content.trim();
         }
+
+        // 设置标题文本，TextView会自动处理行数和省略号
         binding.videoTitle.setText(displayText);
+
+        // 强制TextView重新测量，以确保高度正确调整
+        binding.videoTitle.post(() -> {
+            binding.videoTitle.requestLayout();
+            // 同时请求父容器重新布局
+            if (binding.getRoot() != null) {
+                binding.getRoot().requestLayout();
+            }
+        });
+
+        Log.d(TAG, "Title display - Post: " + post.title +
+                  ", DisplayText: " + displayText.substring(0, Math.min(displayText.length(), 20)) + "...");
+
 
         // 设置用户信息
         if (post.author != null) {
@@ -276,7 +298,7 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             Intent intent = new Intent(context, PostDetailActivity.class);
 
             // 方法1：直接传递Post对象（主要方式）
-            intent.putExtra("post", post);
+            intent.putExtra("post", (Serializable) post);
 
             // 方法2：备用的字段传递（防止Parcelable失败）
             intent.putExtra("post_id", post.postId);
@@ -366,6 +388,65 @@ public class NoteCardAdapater extends RecyclerView.Adapter<NoteCardAdapater.View
             return sdf.format(new Date(timestamp * 1000));
         } catch (Exception e) {
             return "刚刚";
+        }
+    }
+
+    /**
+     * 调整封面容器高度，支持3:4到4:3的宽高比
+     */
+    private void adjustCoverHeight(android.view.View coverContainer, Post.Clip clip) {
+        if (coverContainer == null) {
+            return;
+        }
+
+        // 固定宽度189dp
+        final float containerWidth = 189f; // dp
+        float targetHeight;
+
+        if (clip != null && clip.width > 0 && clip.height > 0) {
+            // 计算原始宽高比
+            float originalAspectRatio = (float) clip.width / clip.height;
+            float finalAspectRatio;
+
+            // 检查原始比例是否在3:4到4:3范围内
+            // 3:4 = 0.75, 4:3 = 1.333...
+            if (originalAspectRatio >= 0.75f && originalAspectRatio <= 1.333f) {
+                // 在范围内，直接使用原始比例
+                finalAspectRatio = originalAspectRatio;
+                Log.d(TAG, "Using original aspect ratio: " + originalAspectRatio);
+            } else {
+                // 超出范围，使用最接近的限制值
+                if (originalAspectRatio < 0.75f) {
+                    // 太窄，使用最小比例3:4
+                    finalAspectRatio = 0.75f;
+                    Log.d(TAG, "Image too narrow (" + originalAspectRatio + "), using min ratio 3:4");
+                } else {
+                    // 太宽，使用最大比例4:3
+                    finalAspectRatio = 1.333f;
+                    Log.d(TAG, "Image too wide (" + originalAspectRatio + "), using max ratio 4:3");
+                }
+            }
+
+            // 根据宽度和最终宽高比计算高度
+            targetHeight = containerWidth / finalAspectRatio;
+
+            Log.d(TAG, "Cover height adjusted - Clip: " + clip.width + "x" + clip.height +
+                      ", OriginalRatio: " + originalAspectRatio +
+                      ", FinalRatio: " + finalAspectRatio +
+                      ", TargetHeight: " + targetHeight + "dp");
+        } else {
+            // 没有尺寸信息时，使用默认的3:4比例（常见的照片比例）
+            targetHeight = containerWidth / 0.75f;
+            Log.d(TAG, "No size info, using default 3:4 ratio - TargetHeight: " + targetHeight + "dp");
+        }
+
+        // 设置布局参数
+        android.view.ViewGroup.LayoutParams params = coverContainer.getLayoutParams();
+        if (params != null) {
+            // 将dp转换为px
+            final float scale = coverContainer.getContext().getResources().getDisplayMetrics().density;
+            params.height = (int) (targetHeight * scale + 0.5f);
+            coverContainer.setLayoutParams(params);
         }
     }
 

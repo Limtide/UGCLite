@@ -9,6 +9,7 @@ import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
+import android.text.TextPaint;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -21,12 +22,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.google.android.material.tabs.TabLayout;
+
 import com.bumptech.glide.Glide;
 import com.limtide.ugclite.MainActivity;
 import com.limtide.ugclite.R;
 import com.limtide.ugclite.adapter.MediaPagerAdapter;
 import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.ActivityPostDetailBinding;
+import com.limtide.ugclite.utils.LikeManager;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -56,6 +60,9 @@ public class PostDetailActivity extends AppCompatActivity {
     // ViewPager adapter
     private MediaPagerAdapter mediaPagerAdapter;
 
+    // 点赞管理器
+    private LikeManager likeManager;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,16 +82,41 @@ public class PostDetailActivity extends AppCompatActivity {
                 return;
             }
 
+            // 初始化点赞管理器
+            likeManager = LikeManager.getInstance(this);
+
             // 初始化界面
             initViews();
             setupClickListeners();
             setupViewPager();
+
+            // 初始化点赞状态
+            initLikeStatus();
 
             Log.d(TAG, "PostDetailActivity created for: " + currentPost.title);
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);
             finish();
         }
+    }
+
+    /**
+     * 初始化点赞状态（与NoteCard同步）
+     */
+    private void initLikeStatus() {
+        if (currentPost == null || likeManager == null) {
+            return;
+        }
+
+        // 从LikeManager获取点赞状态
+        isLiked = likeManager.isPostLiked(currentPost.postId);
+
+        // 更新UI显示
+        updateLikeButton();
+        updateLikeCount();
+
+        Log.d(TAG, "初始化点赞状态 - PostId: " + currentPost.postId +
+                  ", IsLiked: " + isLiked);
     }
 
     /**
@@ -97,7 +129,7 @@ public class PostDetailActivity extends AppCompatActivity {
             Log.d(TAG, "Intent extras: " + intent.getExtras());
 
             // 从HomeFragment传递的Post对象
-            currentPost = intent.getParcelableExtra("post");
+            currentPost = (Post) intent.getSerializableExtra("post");
             if (currentPost != null) {
                 Log.d(TAG, "Post对象获取成功: " + currentPost.title);
                 Log.d(TAG, "Post ID: " + currentPost.postId);
@@ -213,19 +245,22 @@ public class PostDetailActivity extends AppCompatActivity {
             return;
         }
 
-        // 创建ViewPager适配器
-        mediaPagerAdapter = new MediaPagerAdapter(this, mediaClips);
+        // 设置ViewPager高度（基于首图比例）
+        setupViewPagerHeight();
+
+        // 创建ViewPager适配器，传递首图比例信息
+        mediaPagerAdapter = new MediaPagerAdapter(this, mediaClips, getFirstClipAspectRatio());
         binding.viewPager.setAdapter(mediaPagerAdapter);
 
-//        // 设置进度条指示器
-//        setupProgressIndicator();
+        // 设置进度条指示器
+        setupProgressIndicator();
 
         // 监听ViewPager页面变化
         binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
                 currentMediaPosition = position;
-//                updateProgressIndicator();
+                updateProgressIndicator();
                 Log.d(TAG, "Media page changed to: " + position);
             }
         });
@@ -234,6 +269,109 @@ public class PostDetailActivity extends AppCompatActivity {
         binding.viewPager.setCurrentItem(currentMediaPosition, false);
     }
 
+    /**
+     * 设置ViewPager高度（基于首图比例，在3:4 ~ 16:9范围内使用原始比例，超出则使用上下限）
+     */
+    private void setupViewPagerHeight() {
+        Post.Clip firstClip = mediaClips.get(0);
+        float aspectRatio = firstClip.getAspectRatio();
+
+        // 定义宽高比范围：3:4 = 0.75, 16:9 ≈ 1.78
+        float minRatio = 0.75f;  // 3:4
+        float maxRatio = 1.78f;  // 16:9
+
+        // 计算最终使用的比例
+        float finalRatio;
+        if (aspectRatio < minRatio) {
+            finalRatio = minRatio;  // 小于下限，使用下限
+        } else if (aspectRatio > maxRatio) {
+            finalRatio = maxRatio;  // 大于上限，使用上限
+        } else {
+            finalRatio = aspectRatio;  // 在范围内，使用原始比例
+        }
+
+        // 获取屏幕宽度
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int targetHeight = (int) (screenWidth / finalRatio);
+
+        // 设置ViewPager容器高度（包含ViewPager和悬浮的进度条）
+        android.view.ViewGroup.LayoutParams params = binding.viewpagerContainer.getLayoutParams();
+        params.height = targetHeight;
+        binding.viewpagerContainer.setLayoutParams(params);
+
+        Log.d(TAG, "ViewPager height setup - Original ratio: " + aspectRatio +
+                  ", Final ratio: " + finalRatio + " (" +
+                  (aspectRatio < minRatio ? "used min" : aspectRatio > maxRatio ? "used max" : "used original") +
+                  "), Height: " + targetHeight + "px");
+    }
+
+    /**
+     * 获取首图的比例（在3:4 ~ 16:9范围内使用原始比例，超出则使用上下限）
+     */
+    private float getFirstClipAspectRatio() {
+        if (mediaClips == null || mediaClips.isEmpty()) {
+            return 1.0f; // 默认1:1
+        }
+
+        Post.Clip firstClip = mediaClips.get(0);
+        float aspectRatio = firstClip.getAspectRatio();
+
+        // 定义宽高比范围：3:4 = 0.75, 16:9 ≈ 1.78
+        float minRatio = 0.75f;  // 3:4
+        float maxRatio = 1.78f;  // 16:9
+
+        // 在范围内使用原始比例，超出则使用上下限
+        if (aspectRatio < minRatio) {
+            return minRatio;  // 小于下限，使用下限
+        } else if (aspectRatio > maxRatio) {
+            return maxRatio;  // 大于上限，使用上限
+        } else {
+            return aspectRatio;  // 在范围内，使用原始比例
+        }
+    }
+
+    /**
+     * 设置进度条指示器
+     */
+    private void setupProgressIndicator() {
+        if (mediaClips == null || mediaClips.size() <= 1) {
+            // 单图或无图片时隐藏进度条
+            binding.tabIndicator.setVisibility(View.GONE);
+            return;
+        }
+
+        // 多图时显示进度条
+        binding.tabIndicator.setVisibility(View.VISIBLE);
+
+        // 清除现有的tabs
+        binding.tabIndicator.removeAllTabs();
+
+        // 根据图片数量添加对应的指示点
+        for (int i = 0; i < mediaClips.size(); i++) {
+            TabLayout.Tab tab = binding.tabIndicator.newTab();
+            binding.tabIndicator.addTab(tab);
+        }
+
+        // 设置当前选中的tab
+        TabLayout.Tab selectedTab = binding.tabIndicator.getTabAt(currentMediaPosition);
+        if (selectedTab != null) {
+            selectedTab.select();
+        }
+
+        Log.d(TAG, "Progress indicator setup with " + mediaClips.size() + " tabs");
+    }
+
+    /**
+     * 更新进度条指示器
+     */
+    private void updateProgressIndicator() {
+        if (binding.tabIndicator.getTabCount() > 0) {
+            TabLayout.Tab selectedTab = binding.tabIndicator.getTabAt(currentMediaPosition);
+            if (selectedTab != null) {
+                selectedTab.select();
+            }
+        }
+    }
 
     /**
      * 设置内容区域
@@ -244,13 +382,12 @@ public class PostDetailActivity extends AppCompatActivity {
             binding.titleText.setText(currentPost.title != null ? currentPost.title : "");
         }
 
-        // 设置正文内容 - 使用binding中可用的字段
+        // 设置正文内容和话题标签 - 使用binding中可用的字段
         if (binding.contentText != null) {
-            String displayContent = currentPost.content != null ? currentPost.content : "";
-            binding.contentText.setText(displayContent);
+            setupContentWithHashtags();
         }
 
-//        // 设置日期和时间 - 根据新的规则显示
+// 设置日期和时间 - 根据新的规则显示
         if (binding.dateText != null && binding.timeText != null) {
             String[] dateParts = formatPostTime(currentPost.createTime);
             binding.dateText.setText(dateParts[0]); // 日期部分
@@ -288,6 +425,13 @@ public class PostDetailActivity extends AppCompatActivity {
                         // 点击话题标签跳转
                         handleHashtagClick(hashtagText);
                     }
+
+                    @Override
+                    public void updateDrawState(@NonNull android.text.TextPaint ds) {
+                        super.updateDrawState(ds);
+                        ds.setUnderlineText(false); // 移除下划线
+                        ds.setColor(Color.parseColor("#1890FF")); // 设置颜色
+                    }
                 }, 0, hashtagText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
                 spannableBuilder.append(hashtagSpan);
@@ -299,11 +443,11 @@ public class PostDetailActivity extends AppCompatActivity {
                 spannableBuilder.append(content.substring(lastEnd));
             }
 
-//            binding.postContent.setText(spannableBuilder);
-//            binding.postContent.setMovementMethod(LinkMovementMethod.getInstance());
+          binding.contentText.setText(spannableBuilder);
+            binding.contentText.setMovementMethod(LinkMovementMethod.getInstance());
         } else {
             // 没有话题标签，直接显示
-//            binding.postContent.setText(content);
+            binding.contentText.setText(content);
         }
     }
 
@@ -370,6 +514,32 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     /**
+     * 更新点赞数量显示
+     */
+    private void updateLikeCount() {
+        if (binding.likeCount != null && likeManager != null && currentPost != null) {
+            int likeCount = likeManager.getLikeCount(currentPost.postId);
+            binding.likeCount.setText(formatLikeCount(likeCount));
+            Log.d(TAG, "Like count updated: " + likeCount);
+        }
+    }
+
+    /**
+     * 格式化点赞数量显示
+     */
+    private String formatLikeCount(int count) {
+        if (count < 1000) {
+            return String.valueOf(count);
+        } else if (count < 10000) {
+            return String.format("%.1fK", count / 1000.0);
+        } else if (count < 1000000) {
+            return String.format("%dK", count / 1000);
+        } else {
+            return String.format("%.1fM", count / 1000000.0);
+        }
+    }
+
+    /**
      * 更新收藏按钮状态
      */
     private void updateStarButton() {
@@ -385,12 +555,12 @@ public class PostDetailActivity extends AppCompatActivity {
      */
     private void setupClickListeners() {
 
-        // 返回按钮 - 恢复跳转功能
+        // 返回按钮 - 直接返回上一页
         binding.backButton.setOnClickListener(v -> {
             Log.d(TAG, "back button clicked");
-            Intent intent =new Intent(PostDetailActivity.this, MainActivity.class);
-            startActivity(intent);
             finish();
+            // 添加返回动画，让用户体验更流畅
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         });
 
         // 快捷评论框
@@ -400,11 +570,11 @@ public class PostDetailActivity extends AppCompatActivity {
             });
         }
 
-        // 底部栏按钮 - 只响应点击，不执行具体操作
+        // 底部栏按钮 - 实现真正的点赞功能
         if (binding.likeButton != null) {
             binding.likeButton.setOnClickListener(v -> {
                 Log.d(TAG, "Like button clicked");
-                // 只响应点击，不执行任何操作
+                handleLikeClick();
             });
         }
 
@@ -431,6 +601,29 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     /**
+     * 处理点赞点击（与NoteCard同步）
+     */
+    private void handleLikeClick() {
+        if (currentPost == null || likeManager == null) {
+            return;
+        }
+
+        // 使用LikeManager切换点赞状态
+        boolean newLikeStatus = likeManager.toggleLike(currentPost.postId);
+        isLiked = newLikeStatus;
+
+        // 更新UI显示
+        updateLikeButton();
+        updateLikeCount();
+
+        Log.d(TAG, "Like clicked - PostId: " + currentPost.postId +
+                  ", NewStatus: " + newLikeStatus +
+                  ", TotalLikedPosts: " + likeManager.getAllLikedPosts().size());
+
+        Toast.makeText(this, isLiked ? "已点赞" : "取消点赞", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
      * 切换关注状态
      */
     private void toggleFollowStatus() {
@@ -451,22 +644,10 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     /**
-     * 切换点赞状态
+     * 切换点赞状态（保留原方法作为兼容）
      */
     private void toggleLikeStatus() {
-        isLiked = !isLiked;
-        updateLikeButton();
-
-        // 这里应该调用API更新点赞状态
-        // APIManager.likePost(currentPost.postId, isLiked, success -> {
-        //     if (success) {
-        //         runOnUiThread(() -> {
-        //             isLiked = !isLiked;
-        //         });
-        //     }
-        // });
-
-        Toast.makeText(this, isLiked ? "已点赞" : "取消点赞", Toast.LENGTH_SHORT).show();
+        handleLikeClick();
     }
 
     /**
@@ -494,12 +675,11 @@ public class PostDetailActivity extends AppCompatActivity {
      */
     private void handleHashtagClick(String hashtagText) {
         Log.d(TAG, "Hashtag clicked: " + hashtagText);
-        Toast.makeText(this, "话题: " + hashtagText, Toast.LENGTH_SHORT).show();
 
-        // 这里可以跳转到话题页面
-        // Intent intent = new Intent(this, HashtagActivity.class);
-        // intent.putExtra("hashtag", hashtagText);
-        // startActivity(intent);
+        // 跳转到话题页面
+        Intent intent = new Intent(this, HashtagActivity.class);
+        intent.putExtra("hashtag", hashtagText);
+        startActivity(intent);
     }
 
     /**

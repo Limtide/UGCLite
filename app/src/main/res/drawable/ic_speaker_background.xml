@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+
+    <!-- 灰色圆形背景 -->
+    <path
+        android:fillColor="#B0B0B0"
+        android:pathData="M14,14m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0"/>
+
+    <!-- 喇叭图标 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M6,10 L6,18 L10,18 L14,22 L14,6 L10,10 L6,10 z"/>
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17.5,8.5 C18.5,9.5 19,10.5 19,12 C19,13.5 18.5,14.5 17.5,15.5 M21,6 C23,8 24,10 24,12 C24,14 23,16 21,18"/>
+</vector>

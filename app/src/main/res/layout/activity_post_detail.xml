@@ -6,7 +6,7 @@
     android:id="@+id/constraint_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F2F2F2"
+    android:background="#FFFFFF"
     tools:context=".activity.PostDetailActivity">
     <!-- 状态栏占位 -->
     <View
@@ -86,6 +86,20 @@
                     android:id="@+id/viewPager"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
+
+                <!-- 音量图标 - 悬浮在图片右下角 -->
+                <ImageView
+                    android:id="@+id/volume_icon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="bottom|end"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="16dp"
+                    android:src="@drawable/ic_speaker_background"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="音量" />
 
                 <!-- 页面指示器 - 悬浮在图片底部上方 -->
                 <com.google.android.material.tabs.TabLayout

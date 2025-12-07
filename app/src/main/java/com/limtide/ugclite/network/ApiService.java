@@ -33,13 +33,20 @@ public class ApiService {
 
     private OkHttpClient okHttpClient;
     private Gson gson;
-    private static ApiService instance;
+    private static volatile ApiService instance;
 
 
-//  懒汉式单例模式，没加锁，需要加锁吗？
+    /**
+     * 获取ApiService实例 - 双重检查锁定单例模式
+     * 确保多线程环境下的线程安全
+     */
     public static ApiService getInstance() {
         if (instance == null) {
-            instance = new ApiService();
+            synchronized (ApiService.class) {
+                if (instance == null) {
+                    instance = new ApiService();
+                }
+            }
         }
         return instance;
     }

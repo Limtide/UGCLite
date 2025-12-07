@@ -42,6 +42,7 @@ import com.limtide.ugclite.databinding.ActivityPostDetailBinding;
 import com.limtide.ugclite.utils.LikeManager;
 import com.limtide.ugclite.utils.FollowManager;
 
+import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -69,6 +70,9 @@ public class PostDetailActivity extends AppCompatActivity {
 
     // ViewPager adapter
     private MediaPagerAdapter mediaPagerAdapter;
+
+    // ViewPager回调
+    private ViewPager2.OnPageChangeCallback pageChangeCallback;
 
     // 点赞管理器
     private LikeManager likeManager;
@@ -295,15 +299,9 @@ public class PostDetailActivity extends AppCompatActivity {
         // 设置进度条指示器
         setupProgressIndicator();
 
-        // 监听ViewPager页面变化
-        binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                currentMediaPosition = position;
-                updateProgressIndicator();
-                Log.d(TAG, "Media page changed to: " + position);
-            }
-        });
+        // 监听ViewPager页面变化 - 使用安全的回调避免内存泄漏
+        pageChangeCallback = new SafePageChangeCallback(this);
+        binding.viewPager.registerOnPageChangeCallback(pageChangeCallback);
 
         // 设置当前页
         binding.viewPager.setCurrentItem(currentMediaPosition, false);
@@ -322,35 +320,10 @@ public class PostDetailActivity extends AppCompatActivity {
 
         Post.Clip currentClip = mediaClips.get(currentMediaPosition);
         if (currentClip != null && currentClip.type == 0 && currentClip.url != null) {
-            // 使用Glide预加载首图
+            // 使用Glide预加载首图 - 使用安全回调避免内存泄漏
             Glide.with(this)
                     .load(currentClip.url)
-                    .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
-                        @Override
-                        public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e,
-                                Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
-                                boolean isFirstResource) {
-                            Log.w(TAG, "Failed to preload transition image: " + currentClip.url);
-                            return false;
-                        }
-
-                        @Override
-                        public boolean onResourceReady(android.graphics.drawable.Drawable resource,
-                                Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
-                                com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
-                            Log.d(TAG, "Transition image preloaded successfully: " + currentClip.url);
-
-                            // 图片加载完成后，延迟启动转场动画以确保流畅性
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                                postponeEnterTransition();
-                                // 给图片一点时间渲染
-                                binding.viewPager.post(() -> {
-                                    startPostponedEnterTransition();
-                                });
-                            }
-                            return false;
-                        }
-                    })
+                    .listener(new SafeGlideRequestListener(this, currentClip.url, binding.viewPager))
                     .preload();
         }
     }
@@ -505,20 +478,7 @@ public class PostDetailActivity extends AppCompatActivity {
                 SpannableString hashtagSpan = new SpannableString(hashtagText);
                 hashtagSpan.setSpan(new ForegroundColorSpan(Color.parseColor("#1890FF")),
                         0, hashtagText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                hashtagSpan.setSpan(new ClickableSpan() {
-                    @Override
-                    public void onClick(@NonNull View widget) {
-                        // 点击话题标签跳转
-                        handleHashtagClick(hashtagText);
-                    }
-
-                    @Override
-                    public void updateDrawState(@NonNull android.text.TextPaint ds) {
-                        super.updateDrawState(ds);
-                        ds.setUnderlineText(false); // 移除下划线
-                        ds.setColor(Color.parseColor("#1890FF")); // 设置颜色
-                    }
-                }, 0, hashtagText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                hashtagSpan.setSpan(new SafeClickableSpan(this, hashtagText), 0, hashtagText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
                 spannableBuilder.append(hashtagSpan);
                 lastEnd = hashtag.end;
@@ -1032,7 +992,163 @@ public class PostDetailActivity extends AppCompatActivity {
         super.onDestroy();
         Log.d(TAG, "PostDetailActivity destroyed");
 
+        // 注销ViewPager2回调以防止内存泄漏
+        if (binding != null && binding.viewPager != null && pageChangeCallback != null) {
+            try {
+                binding.viewPager.unregisterOnPageChangeCallback(pageChangeCallback);
+                pageChangeCallback = null;
+                Log.d(TAG, "ViewPager2 callback unregistered");
+            } catch (Exception e) {
+                Log.e(TAG, "Error unregistering ViewPager2 callback: " + e.getMessage(), e);
+            }
+        }
+
+        // 清理Glide请求以防止内存泄漏 - 使用ApplicationContext确保安全
+        if (binding != null) {
+            try {
+                // 使用ApplicationContext而不是Activity Context
+                Glide.with(getApplicationContext()).clear(binding.viewPager);
+                Glide.with(getApplicationContext()).clear(binding.userAvatar);
+                Log.d(TAG, "Glide requests cleared");
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing Glide requests: " + e.getMessage(), e);
+            }
+        }
+
         // 清理ViewBinding
         binding = null;
+
+        // 清理管理器引用（如果需要的话）
+        // likeManager = null; // 单例通常不需要手动清理
+        // followManager = null;
+    }
+
+    /**
+     * 安全的ViewPager2页面变化回调 - 使用WeakReference避免内存泄漏
+     */
+    private static class SafePageChangeCallback extends ViewPager2.OnPageChangeCallback {
+        private final WeakReference<PostDetailActivity> activityRef;
+
+        SafePageChangeCallback(PostDetailActivity activity) {
+            this.activityRef = new WeakReference<>(activity);
+        }
+
+        @Override
+        public void onPageSelected(int position) {
+            PostDetailActivity activity = activityRef.get();
+            if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+                return;
+            }
+
+            activity.currentMediaPosition = position;
+
+            // 安全地更新进度条指示器
+            try {
+                if (activity.binding != null && activity.binding.tabIndicator != null) {
+                    TabLayout.Tab selectedTab = activity.binding.tabIndicator.getTabAt(position);
+                    if (selectedTab != null) {
+                        selectedTab.select();
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(activity.TAG, "Error updating progress indicator: " + e.getMessage(), e);
+            }
+
+            Log.d(activity.TAG, "Media page changed to: " + position);
+        }
+    }
+
+    /**
+     * 安全的Glide请求监听器 - 使用WeakReference避免内存泄漏
+     */
+    private static class SafeGlideRequestListener implements com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
+        private final WeakReference<PostDetailActivity> activityRef;
+        private final String imageUrl;
+        private final WeakReference<ViewPager2> viewPagerRef;
+
+        SafeGlideRequestListener(PostDetailActivity activity, String imageUrl, ViewPager2 viewPager) {
+            this.activityRef = new WeakReference<>(activity);
+            this.imageUrl = imageUrl;
+            this.viewPagerRef = new WeakReference<>(viewPager);
+        }
+
+        @Override
+        public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e,
+                                  Object model,
+                                  com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                  boolean isFirstResource) {
+            PostDetailActivity activity = activityRef.get();
+            if (activity != null) {
+                Log.w(activity.TAG, "Failed to preload transition image: " + imageUrl);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean onResourceReady(android.graphics.drawable.Drawable resource,
+                                     Object model,
+                                     com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                     com.bumptech.glide.load.DataSource dataSource,
+                                     boolean isFirstResource) {
+            PostDetailActivity activity = activityRef.get();
+            if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+                return false;
+            }
+
+            Log.d(activity.TAG, "Transition image preloaded successfully: " + imageUrl);
+
+            // 图片加载完成后，延迟启动转场动画以确保流畅性
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                ViewPager2 viewPager = viewPagerRef.get();
+                if (viewPager != null) {
+                    activity.postponeEnterTransition();
+                    // 给图片一点时间渲染
+                    viewPager.post(() -> {
+                        PostDetailActivity currentActivity = activityRef.get();
+                        if (currentActivity != null && !currentActivity.isFinishing() && !currentActivity.isDestroyed()) {
+                            currentActivity.startPostponedEnterTransition();
+                        }
+                    });
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 安全的ClickableSpan - 使用WeakReference避免内存泄漏
+     */
+    private static class SafeClickableSpan extends ClickableSpan {
+        private final WeakReference<PostDetailActivity> activityRef;
+        private final String hashtagText;
+
+        SafeClickableSpan(PostDetailActivity activity, String hashtagText) {
+            this.activityRef = new WeakReference<>(activity);
+            this.hashtagText = hashtagText;
+        }
+
+        @Override
+        public void onClick(@NonNull View widget) {
+            PostDetailActivity activity = activityRef.get();
+            if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+                return;
+            }
+
+            try {
+                // 点击话题标签跳转
+                Intent intent = new Intent(activity, HashtagActivity.class);
+                intent.putExtra("hashtag", hashtagText);
+                activity.startActivity(intent);
+            } catch (Exception e) {
+                Log.e(activity.TAG, "Error starting hashtag activity: " + e.getMessage(), e);
+            }
+        }
+
+        @Override
+        public void updateDrawState(@NonNull TextPaint ds) {
+            super.updateDrawState(ds);
+            ds.setUnderlineText(false); // 移除下划线
+            ds.setColor(Color.parseColor("#1890FF")); // 设置颜色
+        }
     }
 }

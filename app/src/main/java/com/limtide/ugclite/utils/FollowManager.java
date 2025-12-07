@@ -10,6 +10,12 @@ import java.util.Set;
 /**
  * 关注状态管理器
  * 使用SharedPreferences进行本地持久化存储
+ *
+ * @Context说明:
+ * - 使用Application Context，生命周期与应用绑定
+ * - 单例模式，实例在应用运行期间持续存在
+ * - 不会因Activity/Fragment销毁而丢失数据
+ * - 线程安全，支持多线程访问
  */
 public class FollowManager {
     private static final String TAG = "FollowManager";
@@ -24,14 +30,40 @@ public class FollowManager {
     private Set<String> followedUserIds; // 已关注的用户ID集合
 
     private FollowManager(Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        // 强制使用Application Context确保生命周期安全
+        Context appContext = context.getApplicationContext();
+        if (appContext == null) {
+            throw new IllegalStateException("Application Context is not available");
+        }
+
+        prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         editor = prefs.edit();
         loadData();
     }
 
+    /**
+     * 获取FollowManager单例实例
+     *
+     * @param context 上下文对象，可以是Activity、Service或Application Context
+     *               内部会自动转换为Application Context确保生命周期安全
+     * @return FollowManager单例实例
+     * @throws IllegalArgumentException 如果context为null
+     * @throws IllegalStateException 如果Application Context不可用
+     */
     public static synchronized FollowManager getInstance(Context context) {
         if (instance == null) {
-            instance = new FollowManager(context);
+            if (context == null) {
+                throw new IllegalArgumentException("Context cannot be null when initializing FollowManager");
+            }
+            try {
+                instance = new FollowManager(context);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize FollowManager: " + e.getMessage(), e);
+                throw new RuntimeException("FollowManager initialization failed", e);
+            }
         }
         return instance;
     }
@@ -143,5 +175,41 @@ public class FollowManager {
      */
     public void logStats() {
         Log.d(TAG, "Follow stats - Total followed users: " + followedUserIds.size());
+    }
+
+    /**
+     * 清理资源和内存缓存
+     * 通常在应用退出时调用，用于释放内存
+     * 注意：此操作不会删除持久化存储的数据
+     */
+    public void cleanup() {
+        try {
+            // 清理内存缓存
+            if (followedUserIds != null) {
+                followedUserIds.clear();
+            }
+            followedUserIds = null;
+
+            // 清理Editor引用
+            editor = null;
+            prefs = null;
+
+            Log.d(TAG, "FollowManager cleaned up successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error during cleanup: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 重置单例实例
+     * 通常用于测试或特殊场景，谨慎使用
+     * 重置后需要重新调用getInstance()初始化
+     */
+    public static synchronized void resetInstance() {
+        if (instance != null) {
+            instance.cleanup();
+            instance = null;
+            Log.d(TAG, "FollowManager instance reset");
+        }
     }
 }

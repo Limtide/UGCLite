@@ -24,7 +24,7 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.limtide.ugclite.activity.PostDetailActivity;
-import com.limtide.ugclite.adapter.NoteCardAdapater;
+import com.limtide.ugclite.adapter.NoteCardAdapter;
 import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.FragmentHomeBinding;
 import com.limtide.ugclite.network.ApiService;
@@ -45,7 +45,7 @@ public class HomeFragment extends Fragment {
     private static final String KEY_POSTS_DATA = "posts_data";
 
     private FragmentHomeBinding binding;
-    private NoteCardAdapater notecardAdapater;
+    private NoteCardAdapter notecardAdapter;
     private ApiService apiService;
     private boolean isFirst = true;
     private static final int PAGE_SIZE = 20; // 每页数据量
@@ -121,8 +121,8 @@ public class HomeFragment extends Fragment {
         // 注意：LayoutManager已在XML中配置
 
         // 初始化适配器
-        notecardAdapater = new NoteCardAdapater(getContext());
-        binding.recyclerView.setAdapter(notecardAdapater);
+        notecardAdapter = new NoteCardAdapter(getContext());
+        binding.recyclerView.setAdapter(notecardAdapter);
 
         // 恢复滚动状态
         if (savedRecyclerViewState != null) {
@@ -133,11 +133,11 @@ public class HomeFragment extends Fragment {
         // 添加滚动监听器实现上拉加载更多 - 使用WeakReference避免内存泄漏
         binding.recyclerView.addOnScrollListener(new SafeScrollListener(this));
 
-        Log.d(TAG, "RecyclerView setup complete, adapter: " + (notecardAdapater != null ? "not null" : "null"));
+        Log.d(TAG, "RecyclerView setup complete, adapter: " + (notecardAdapter != null ? "not null" : "null"));
 
         // 设置点击事件 - 使用SafeItemClickListener避免内存泄漏
-        Log.d(TAG, "Setting onItemClickListener on notecardAdapater");
-        notecardAdapater.setOnItemClickListener(new SafeItemClickListener(this));
+        Log.d(TAG, "Setting onItemClickListener on notecardAdapter");
+        notecardAdapter.setOnItemClickListener(new SafeItemClickListener(this));
 
         // 初始化ApiService
         apiService = ApiService.getInstance();
@@ -146,7 +146,7 @@ public class HomeFragment extends Fragment {
         if (!savedPosts.isEmpty()) {
             // 有保存的数据，直接恢复显示
             Log.d(TAG, "恢复保存的数据，数量: " + savedPosts.size());
-            notecardAdapater.setPosts(savedPosts);
+            notecardAdapter.setPosts(savedPosts);
             hideEmptyState();
 
             // 恢复滚动状态
@@ -431,10 +431,10 @@ public class HomeFragment extends Fragment {
         }
 
         // 保存数据列表
-        if (notecardAdapater != null) {
+        if (notecardAdapter != null) {
             List<Post> currentPosts = new ArrayList<>();
-            for (int i = 0; i < notecardAdapater.getItemCount(); i++) {
-                currentPosts.add(notecardAdapater.getPost(i));
+            for (int i = 0; i < notecardAdapter.getItemCount(); i++) {
+                currentPosts.add(notecardAdapter.getPost(i));
             }
             outState.putSerializable(KEY_POSTS_DATA, new ArrayList<>(currentPosts));
             Log.d(TAG, "保存数据列表，数量: " + currentPosts.size());
@@ -447,7 +447,7 @@ public class HomeFragment extends Fragment {
      * 刷新所有可见item的点赞状态（与PostDetailActivity同步）
      */
     private void refreshVisibleLikeStatus() {
-        if (notecardAdapater == null || binding.recyclerView == null) {
+        if (notecardAdapter == null || binding.recyclerView == null) {
             return;
         }
 
@@ -465,8 +465,8 @@ public class HomeFragment extends Fragment {
                     int lastPos = lastVisiblePositions[i];
 
                     for (int pos = firstPos; pos <= lastPos; pos++) {
-                        if (pos < notecardAdapater.getItemCount()) {
-                            notecardAdapater.notifyItemChanged(pos);
+                        if (pos < notecardAdapter.getItemCount()) {
+                            notecardAdapter.notifyItemChanged(pos);
                         }
                     }
                 }
@@ -482,7 +482,7 @@ public class HomeFragment extends Fragment {
         Log.d(TAG, "HomeFragment is onResume");
 
         // 从PostDetailActivity返回时，刷新点赞状态
-        if (notecardAdapater != null && notecardAdapater.getItemCount() > 0) {
+        if (notecardAdapter != null && notecardAdapter.getItemCount() > 0) {
             refreshVisibleLikeStatus();
         }
     }
@@ -553,16 +553,16 @@ public class HomeFragment extends Fragment {
                     // 原子性地更新所有状态
                     fragment.updateLoadingStateAtomic(false, hasMore);
 
-                    if (fragment.notecardAdapater != null) {
+                    if (fragment.notecardAdapter != null) {
                         if (posts != null && !posts.isEmpty()) {
                             // 过滤掉只有音频类型（如MP3）的帖子，只保留图片和视频
                             List<Post> filteredPosts = fragment.filterPosts(posts);
 
                             if (isLoadMore) {
-                                fragment.notecardAdapater.addPosts(filteredPosts);
+                                fragment.notecardAdapter.addPosts(filteredPosts);
                                 Log.d(fragment.TAG, "加载更多过滤后数据已添加，原始数据: " + posts.size() + "，过滤后: " + filteredPosts.size());
                             } else {
-                                fragment.notecardAdapater.setPosts(filteredPosts);
+                                fragment.notecardAdapter.setPosts(filteredPosts);
                                 fragment.hideEmptyState();
                                 Log.d(fragment.TAG, "过滤后数据已加载到瀑布流适配器，原始数据: " + posts.size() + "，过滤后: " + filteredPosts.size());
                             }
@@ -623,7 +623,7 @@ public class HomeFragment extends Fragment {
     /**
      * 安全的点击监听器 - 使用WeakReference避免内存泄漏
      */
-    private static class SafeItemClickListener implements NoteCardAdapater.OnItemClickListener {
+    private static class SafeItemClickListener implements NoteCardAdapter.OnItemClickListener {
         private final WeakReference<HomeFragment> fragmentRef;
 
         SafeItemClickListener(HomeFragment fragment) {
@@ -649,7 +649,7 @@ public class HomeFragment extends Fragment {
                 View coverImage = null;
                 if (viewHolder != null) {
                     // 获取封面图片视图
-                    NoteCardAdapater.ViewHolder noteViewHolder = (NoteCardAdapater.ViewHolder) viewHolder;
+                    NoteCardAdapter.ViewHolder noteViewHolder = (NoteCardAdapter.ViewHolder) viewHolder;
                     coverImage = noteViewHolder.getBinding().coverImage;
                 }
 

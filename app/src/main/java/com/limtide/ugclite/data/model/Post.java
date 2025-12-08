@@ -51,6 +51,15 @@ public class Post implements Parcelable, Serializable {
     @SerializedName("hashtag")
     public List<Hashtag> hashtags;
 
+    // 添加兼容性字段，当hashtag是单个对象时使用
+    public void setHashtagFromObject(Hashtag singleHashtag) {
+        if (hashtags == null) {
+            hashtags = new ArrayList<>();
+        }
+        hashtags.clear();
+        hashtags.add(singleHashtag);
+    }
+
     /**
      * 这是一个列表，包含图片或视频片段
      */

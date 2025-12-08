@@ -128,15 +128,7 @@ public class ApiService {
         });
     }
 
-    /**
-     * 获取Feed数据 - POST请求方式
-     * @param count 请求作品数量
-     * @param acceptVideoClip 是否支持视频片段
-     * @param callback 回调接口
-     */
-    public void getFeedDataPost(int count, boolean acceptVideoClip, FeedCallback callback) {
-        getFeedDataPost(count, acceptVideoClip, 0, callback);
-    }
+
 
     /**
      * 获取Feed数据 - POST请求方式（支持分页）

@@ -28,6 +28,7 @@ import com.limtide.ugclite.ui.adapter.NoteCardAdapter;
 import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.FragmentHomeBinding;
 import com.limtide.ugclite.network.ApiService;
+import com.limtide.ugclite.utils.VideoThumbnailUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,8 @@ public class HomeFragment extends Fragment {
     private ApiService apiService;
     private boolean isFirst = true;
     private static final int PAGE_SIZE = 20; // 每页数据量
+
+    private static final boolean ACCEPT_VIDEO = true;
 
     // 线程安全的状态管理
     private final ReentrantLock stateLock = new ReentrantLock();
@@ -214,10 +217,10 @@ public class HomeFragment extends Fragment {
             isLoading.set(true);
             showLoadingState();
 
-            Log.d(TAG, "开始加载Feed数据，数量: " + PAGE_SIZE + ", 支持视频: false, cursor: " + currentCursor.get());
+            Log.d(TAG, "开始加载Feed数据，数量: " + PAGE_SIZE + ", 支持视频: true, cursor: " + currentCursor.get());
 
             // 调用API获取数据（第一页，cursor=0）- 使用SafeFeedCallback避免内存泄漏
-            apiService.getFeedData(PAGE_SIZE, false, currentCursor.get(), new SafeFeedCallback(this, false));
+            apiService.getFeedData(PAGE_SIZE, ACCEPT_VIDEO, currentCursor.get(), new SafeFeedCallback(this, false));
         } finally {
             stateLock.unlock();
         }
@@ -256,7 +259,7 @@ public class HomeFragment extends Fragment {
             Log.d(TAG, "开始加载更多Feed数据，cursor: " + currentCursor.get() + ", 数量: " + PAGE_SIZE);
 
             // 调用API获取更多数据 - 使用SafeFeedCallback避免内存泄漏
-            apiService.getFeedData(PAGE_SIZE, false, currentCursor.get(), new SafeFeedCallback(this, true));
+            apiService.getFeedData(PAGE_SIZE, ACCEPT_VIDEO, currentCursor.get(), new SafeFeedCallback(this, true));
         } finally {
             stateLock.unlock();
         }
@@ -356,6 +359,50 @@ public class HomeFragment extends Fragment {
         if (binding.emptyStateLayout != null) {
             binding.emptyStateLayout.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * 预加载视频缩略图以提升性能
+     */
+    private void preloadVideoThumbnails(List<Post> posts) {
+        if (posts == null || posts.isEmpty() || getContext() == null) {
+            return;
+        }
+
+        Log.d(TAG, "开始预加载视频缩略图，帖子数量: " + posts.size());
+
+        // 在后台线程中预加载，避免阻塞UI
+        new Thread(() -> {
+            int preloadCount = 0;
+            int maxPreload = Math.min(posts.size(), 6); // 限制预加载数量，避免过多网络请求
+
+            for (int i = 0; i < maxPreload; i++) {
+                Post post = posts.get(i);
+                if (post.clips != null && !post.clips.isEmpty()) {
+                    for (Post.Clip clip : post.clips) {
+                        if (clip.type == 1 && clip.url != null && !clip.url.isEmpty()) {
+                            // 找到视频clip
+                            try {
+                                // 检查是否已有缓存
+                                if (VideoThumbnailUtil.getCachedThumbnail(getContext(), clip.url) == null) {
+                                    // 没有缓存才预加载
+                                    VideoThumbnailUtil.preloadThumbnail(getContext(), clip.url, null);
+                                    preloadCount++;
+                                    Log.d(TAG, "预加载视频缩略图: " + clip.url);
+                                } else {
+                                    Log.d(TAG, "视频缩略图已存在缓存，跳过: " + clip.url);
+                                }
+                                break; // 每个帖子只预加载第一个视频
+                            } catch (Exception e) {
+                                Log.w(TAG, "预加载视频缩略图失败: " + clip.url, e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            Log.d(TAG, "视频缩略图预加载完成，预加载数量: " + preloadCount);
+        }).start();
     }
 
 
@@ -566,6 +613,9 @@ public class HomeFragment extends Fragment {
                                 fragment.hideEmptyState();
                                 Log.d(fragment.TAG, "过滤后数据已加载到瀑布流适配器，原始数据: " + posts.size() + "，过滤后: " + filteredPosts.size());
                             }
+
+                            // 预加载视频缩略图以提升性能
+                            fragment.preloadVideoThumbnails(filteredPosts);
 
                             // 原子性地更新cursor
                             fragment.updateCursorAtomic(filteredPosts.size());

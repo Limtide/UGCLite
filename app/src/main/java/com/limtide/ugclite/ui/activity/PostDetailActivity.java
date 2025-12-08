@@ -3,6 +3,8 @@ package com.limtide.ugclite.ui.activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -11,6 +13,7 @@ import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.TextPaint;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 
 import android.widget.Toast;
@@ -20,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
+import androidx.recyclerview.widget.RecyclerView;
 import android.transition.AutoTransition;
 import android.transition.ChangeBounds;
 import android.transition.ChangeImageTransform;
@@ -37,6 +41,7 @@ import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.ActivityPostDetailBinding;
 import com.limtide.ugclite.utils.LikeManager;
 import com.limtide.ugclite.utils.FollowManager;
+import com.limtide.ugclite.utils.MuteManager;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -76,6 +81,22 @@ public class PostDetailActivity extends AppCompatActivity {
     // 关注管理器
     private FollowManager followManager;
 
+    // 静音管理器
+    private MuteManager muteManager;
+
+    // 自动轮播相关
+    private Handler autoPlayHandler;
+    private Runnable autoPlayRunnable;
+    private static final long AUTO_PLAY_DELAY = 4000; // 4秒
+    private boolean isAutoPlaying = false;
+
+  // 静音和手动打断相关
+    private boolean isMuted = false;
+    private boolean isManuallyInterrupted = false;
+    private boolean isUserTouching = false;
+    private int lastKnownPosition = -1;
+    private long lastAutoPlayTime = 0;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -103,6 +124,12 @@ public class PostDetailActivity extends AppCompatActivity {
 
             // 初始化关注管理器
             followManager = FollowManager.getInstance(this);
+
+            // 初始化静音管理器
+            initMuteManager();
+
+            // 初始化自动轮播Handler
+            initAutoPlay();
 
             // 初始化界面
             initViews();
@@ -160,6 +187,91 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     /**
+     * 初始化静音管理器
+     */
+    private void initMuteManager() {
+        muteManager = MuteManager.getInstance(this);
+        isMuted = muteManager.isMuted();
+
+        // 设置静音状态变化监听器
+        muteManager.setOnMuteStateChangeListener(new MuteManager.OnMuteStateChangeListener() {
+            @Override
+            public void onMuteStateChanged(boolean muted) {
+                isMuted = muted;
+                updateVolumeButtonIcon();
+                applyMuteStateToAllMedia();
+
+                Log.d(TAG, "静音状态变化: " + muted);
+
+                // 静音状态变化时的播控逻辑
+                if (isMuted) {
+                    // 静音时停止自动轮播
+                    stopAutoPlay();
+                } else {
+                    // 取消静音时，如果用户没有手动打断，恢复自动轮播
+                    if (!isManuallyInterrupted && !isUserTouching) {
+                        startAutoPlay();
+                    }
+                }
+            }
+        });
+
+        Log.d(TAG, "静音管理器初始化完成，当前状态: " + isMuted);
+    }
+
+    /**
+     * 初始化自动轮播
+     */
+    private void initAutoPlay() {
+        autoPlayHandler = new Handler(Looper.getMainLooper());
+        autoPlayRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mediaClips != null && mediaClips.size() > 1 && isAutoPlaying) {
+                    // 更新自动轮播时间戳
+                    lastAutoPlayTime = System.currentTimeMillis();
+
+                    // 计算下一页的位置，循环播放
+                    int nextPosition = (currentMediaPosition + 1) % mediaClips.size();
+
+                    // 切换到下一页
+                    if (binding != null && binding.viewPager != null) {
+                        binding.viewPager.setCurrentItem(nextPosition, true);
+                    }
+
+                    Log.d(TAG, "Auto play switched to position: " + nextPosition + " at time: " + lastAutoPlayTime);
+
+                    // 继续下一次轮播
+                    autoPlayHandler.postDelayed(this, AUTO_PLAY_DELAY);
+                }
+            }
+        };
+    }
+
+    /**
+     * 开始自动轮播
+     */
+    private void startAutoPlay() {
+        if (mediaClips != null && mediaClips.size() > 1 && !isAutoPlaying && !isMuted && !isManuallyInterrupted) {
+            isAutoPlaying = true;
+            lastAutoPlayTime = System.currentTimeMillis();
+            autoPlayHandler.postDelayed(autoPlayRunnable, AUTO_PLAY_DELAY);
+            Log.d(TAG, "Auto play started at time: " + lastAutoPlayTime);
+        }
+    }
+
+    /**
+     * 停止自动轮播
+     */
+    private void stopAutoPlay() {
+        if (isAutoPlaying) {
+            isAutoPlaying = false;
+            autoPlayHandler.removeCallbacks(autoPlayRunnable);
+            Log.d(TAG, "Auto play stopped");
+        }
+    }
+
+    /**
      * 获取Intent传递的数据
      */
     private void getIntentData() {
@@ -171,8 +283,60 @@ public class PostDetailActivity extends AppCompatActivity {
             // 从HomeFragment传递的Post对象
             currentPost = (Post) intent.getSerializableExtra("post");
             if (currentPost != null) {
+                Log.d(TAG, "=== POST DATA LOG START ===");
                 Log.d(TAG, "Post对象获取成功: " + currentPost.title);
                 Log.d(TAG, "Post ID: " + currentPost.postId);
+                Log.d(TAG, "Post Title: " + currentPost.title);
+                Log.d(TAG, "Post Content: " + currentPost.content);
+                Log.d(TAG, "Post Create Time: " + currentPost.createTime);
+
+                // 打印作者信息
+                if (currentPost.author != null) {
+                    Log.d(TAG, "Author ID: " + currentPost.author.userId);
+                    Log.d(TAG, "Author Nickname: " + currentPost.author.nickname);
+                    Log.d(TAG, "Author Avatar URL: " + currentPost.author.avatarUrl);
+                } else {
+                    Log.d(TAG, "Author: null");
+                }
+
+                // 打印话题标签信息
+                if (currentPost.hashtags != null && !currentPost.hashtags.isEmpty()) {
+                    Log.d(TAG, "Hashtags count: " + currentPost.hashtags.size());
+                    for (int i = 0; i < currentPost.hashtags.size(); i++) {
+                        Post.Hashtag hashtag = currentPost.hashtags.get(i);
+                        Log.d(TAG, "Hashtag[" + i + "]: start=" + hashtag.start + ", end=" + hashtag.end);
+                        if (currentPost.content != null && hashtag.start >= 0 && hashtag.end <= currentPost.content.length()) {
+                            String tagText = currentPost.content.substring(hashtag.start, hashtag.end);
+                            Log.d(TAG, "Hashtag[" + i + "] text: " + tagText);
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "Hashtags: null or empty");
+                }
+
+                // 打印媒体片段信息
+                if (currentPost.clips != null && !currentPost.clips.isEmpty()) {
+                    Log.d(TAG, "Media clips count: " + currentPost.clips.size());
+                    for (int i = 0; i < currentPost.clips.size(); i++) {
+                        Post.Clip clip = currentPost.clips.get(i);
+                        Log.d(TAG, "Clip[" + i + "]: type=" + clip.type + ", width=" + clip.width + ", height=" + clip.height + ", url=" + clip.url);
+                        Log.d(TAG, "Clip[" + i + "] aspect ratio: " + clip.getAspectRatio());
+                    }
+                } else {
+                    Log.d(TAG, "Media clips: null or empty");
+                }
+
+                // 打印音乐信息
+                if (currentPost.music != null) {
+                    Log.d(TAG, "Music volume: " + currentPost.music.volume);
+                    Log.d(TAG, "Music seek time: " + currentPost.music.seekTime);
+                    Log.d(TAG, "Music URL: " + currentPost.music.url);
+                } else {
+                    Log.d(TAG, "Music: null");
+                }
+
+                Log.d(TAG, "=== POST DATA LOG END ===");
+
                 mediaClips = currentPost.clips != null ? currentPost.clips : new ArrayList<>();
                 Log.d(TAG, "媒体片段数量: " + mediaClips.size());
             } else {
@@ -290,6 +454,30 @@ public class PostDetailActivity extends AppCompatActivity {
 
         // 创建ViewPager适配器，传递首图比例信息
         mediaPagerAdapter = new MediaPagerAdapter(this, mediaClips, getFirstClipAspectRatio());
+
+        // 设置媒体点击事件监听器
+        mediaPagerAdapter.setOnMediaClickListener(new MediaPagerAdapter.OnMediaClickListener() {
+            @Override
+            public void onImageClick(Post.Clip clip, int position) {
+                handleImageClick(clip, position);
+            }
+
+            @Override
+            public void onVideoClick(Post.Clip clip, int position) {
+                handleVideoClick(clip, position);
+            }
+
+            @Override
+            public void onVideoPlay(Post.Clip clip, int position) {
+                handleVideoPlay(clip, position);
+            }
+
+            @Override
+            public void onVideoPause(Post.Clip clip, int position) {
+                handleVideoPause(clip, position);
+            }
+        });
+
         binding.viewPager.setAdapter(mediaPagerAdapter);
 
         // 设置进度条指示器
@@ -302,8 +490,14 @@ public class PostDetailActivity extends AppCompatActivity {
         // 设置当前页
         binding.viewPager.setCurrentItem(currentMediaPosition, false);
 
+        // 初始化位置信息
+        lastKnownPosition = currentMediaPosition;
+
         // 预加载当前页面的图片以确保转场动画流畅
         preloadCurrentPageImage();
+
+        // 启动自动轮播
+        startAutoPlay();
     }
 
     /**
@@ -703,6 +897,14 @@ public class PostDetailActivity extends AppCompatActivity {
                 handleShareClick();
             });
         }
+
+        // 音量按钮点击事件
+        if (binding.volumeIcon != null) {
+            binding.volumeIcon.setOnClickListener(v -> {
+                Log.d(TAG, "Volume button clicked");
+                handleVolumeClick();
+            });
+        }
     }
 
     /**
@@ -827,6 +1029,119 @@ public class PostDetailActivity extends AppCompatActivity {
         }
 
         return shareText.toString();
+    }
+
+    /**
+     * 处理音量按钮点击
+     */
+    private void handleVolumeClick() {
+        // 使用MuteManager切换静音状态
+        boolean newMutedState = muteManager.toggleMute();
+
+        // 显示提示信息
+        Toast.makeText(this, newMutedState ? "已静音" : "已取消静音", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "音量按钮点击，新状态: " + newMutedState);
+    }
+
+    /**
+     * 更新音量按钮图标
+     */
+    private void updateVolumeButtonIcon() {
+        if (binding.volumeIcon != null) {
+            int iconResource = muteManager.getMuteIconResource();
+            binding.volumeIcon.setImageResource(iconResource);
+            Log.d(TAG, "更新音量按钮图标: " + (isMuted ? "静音" : "非静音"));
+        }
+    }
+
+    /**
+     * 应用静音状态到所有媒体播放器
+     */
+    private void applyMuteStateToAllMedia() {
+        // 应用到视频播放器
+        muteAllVideoPlayers();
+
+        // 应用到音乐播放器（如果有）
+        if (currentPost != null && currentPost.music != null && mediaPagerAdapter != null) {
+            // 这里可以添加音乐播放器的静音逻辑
+            Log.d(TAG, "应用静音状态到音乐播放器: " + isMuted);
+        }
+
+        Log.d(TAG, "静音状态已应用到所有媒体: " + isMuted);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "PostDetailActivity resumed - 恢复播放状态");
+
+        // 从MuteManager获取最新状态
+        isMuted = muteManager.isMuted();
+
+        // 更新音量按钮图标
+        updateVolumeButtonIcon();
+
+        // 恢复媒体播放（应用当前的静音状态）
+        resumeMediaPlayback();
+
+        // Activity重新可见时重置用户触摸状态
+        isUserTouching = false;
+
+        // 如果不在静音状态且用户没有手动打断，恢复自动轮播
+        if (!isMuted && !isManuallyInterrupted && !isUserTouching) {
+            startAutoPlay();
+        }
+
+        Log.d(TAG, "onResume完成 - isMuted: " + isMuted + ", isManuallyInterrupted: " + isManuallyInterrupted);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "PostDetailActivity paused - 暂停播放状态");
+
+        // 暂停媒体播放
+        pauseMediaPlayback();
+
+        // Activity不可见时停止自动轮播
+        stopAutoPlay();
+    }
+
+    /**
+     * 恢复媒体播放
+     * 从后台或返回详情页时调用
+     */
+    private void resumeMediaPlayback() {
+        Log.d(TAG, "恢复媒体播放，静音状态: " + isMuted);
+
+        // 应用静音状态到所有媒体播放器
+        applyMuteStateToAllMedia();
+
+        // 如果有音乐，恢复音乐播放（非静音状态下）
+        if (currentPost != null && currentPost.music != null && !isMuted) {
+            // 这里可以添加音乐播放器的恢复逻辑
+            Log.d(TAG, "恢复音乐播放");
+        }
+
+        // 视频播放器会根据用户交互自动播放
+        // 这里不需要强制恢复视频播放，让用户主动触发
+    }
+
+    /**
+     * 暂停媒体播放
+     * 退后台或关闭页面时调用
+     */
+    private void pauseMediaPlayback() {
+        Log.d(TAG, "暂停媒体播放");
+
+        // 暂停所有视频播放
+        pauseAllVideoPlayers();
+
+        // 如果有音乐，暂停音乐播放
+        if (currentPost != null && currentPost.music != null) {
+            // 这里可以添加音乐播放器的暂停逻辑
+            Log.d(TAG, "暂停音乐播放");
+        }
     }
 
     /**
@@ -988,6 +1303,15 @@ public class PostDetailActivity extends AppCompatActivity {
         super.onDestroy();
         Log.d(TAG, "PostDetailActivity destroyed");
 
+        // 停止自动轮播
+        stopAutoPlay();
+
+        // 清理Handler
+        if (autoPlayHandler != null) {
+            autoPlayHandler.removeCallbacksAndMessages(null);
+            autoPlayHandler = null;
+        }
+
         // 注销ViewPager2回调以防止内存泄漏
         if (binding != null && binding.viewPager != null && pageChangeCallback != null) {
             try {
@@ -998,6 +1322,9 @@ public class PostDetailActivity extends AppCompatActivity {
                 Log.e(TAG, "Error unregistering ViewPager2 callback: " + e.getMessage(), e);
             }
         }
+
+        // 释放所有视频播放器资源
+        releaseAllVideoPlayers();
 
         // 清理Glide请求以防止内存泄漏 - 使用ApplicationContext确保安全
         if (binding != null) {
@@ -1014,9 +1341,15 @@ public class PostDetailActivity extends AppCompatActivity {
         // 清理ViewBinding
         binding = null;
 
+        // 清理静音管理器监听器
+        if (muteManager != null) {
+            muteManager.setOnMuteStateChangeListener(null);
+        }
+
         // 清理管理器引用（如果需要的话）
         // likeManager = null; // 单例通常不需要手动清理
         // followManager = null;
+        // muteManager = null; // 单例通常不需要手动清理
     }
 
     /**
@@ -1036,6 +1369,12 @@ public class PostDetailActivity extends AppCompatActivity {
                 return;
             }
 
+            long currentTime = System.currentTimeMillis();
+            long timeSinceLastAutoPlay = currentTime - activity.lastAutoPlayTime;
+
+            // 判断是否为手动滑动（如果距离上次自动轮播时间很短，说明是自动轮播；否则是手动滑动）
+            boolean isManualSwipe = timeSinceLastAutoPlay > 1000; // 1秒内的滑动认为是自动轮播
+
             activity.currentMediaPosition = position;
 
             // 安全地更新进度条指示器
@@ -1050,7 +1389,26 @@ public class PostDetailActivity extends AppCompatActivity {
                 Log.e(activity.TAG, "Error updating progress indicator: " + e.getMessage(), e);
             }
 
-            Log.d(activity.TAG, "Media page changed to: " + position);
+            // 如果是手动滑动且当前正在自动轮播，则打断轮播
+            if (isManualSwipe && activity.isAutoPlaying && !activity.isManuallyInterrupted) {
+                activity.isManuallyInterrupted = true;
+                activity.stopAutoPlay();
+                Log.d(activity.TAG, "Auto play manually interrupted by user swipe");
+            }
+
+            // 如果是手动滑动，自动静音
+            if (isManualSwipe && !activity.isMuted) {
+                activity.isMuted = true;
+                activity.updateVolumeButtonIcon();
+                activity.muteAllVideoPlayers();
+                Log.d(activity.TAG, "Auto muted due to user swipe");
+            }
+
+            Log.d(activity.TAG, "Media page changed to: " + position +
+                      ", isManualSwipe: " + isManualSwipe +
+                      ", timeSinceLastAutoPlay: " + timeSinceLastAutoPlay +
+                      ", isMuted: " + activity.isMuted +
+                      ", isManuallyInterrupted: " + activity.isManuallyInterrupted);
         }
     }
 
@@ -1145,6 +1503,93 @@ public class PostDetailActivity extends AppCompatActivity {
             super.updateDrawState(ds);
             ds.setUnderlineText(false); // 移除下划线
             ds.setColor(Color.parseColor("#1890FF")); // 设置颜色
+        }
+    }
+
+    // ==================== 视频播放事件处理 ====================
+
+    /**
+     * 处理图片点击事件
+     */
+    private void handleImageClick(Post.Clip clip, int position) {
+        Log.d(TAG, "Image clicked: " + clip.url + " at position " + position);
+        // 暂停自动轮播
+        stopAutoPlay();
+        // 可以在这里添加图片放大查看等功能
+    }
+
+    /**
+     * 处理视频点击事件
+     */
+    private void handleVideoClick(Post.Clip clip, int position) {
+        Log.d(TAG, "Video clicked: " + clip.url + " at position " + position);
+        // 暂停自动轮播
+        stopAutoPlay();
+        // 视频播放状态切换在MediaPagerAdapter中处理
+    }
+
+    /**
+     * 处理视频播放事件
+     */
+    private void handleVideoPlay(Post.Clip clip, int position) {
+        Log.d(TAG, "Video started: " + clip.url + " at position " + position);
+        // 视频开始播放时，暂停自动轮播
+        stopAutoPlay();
+
+        // 如果视频播放时是静音状态，可以在这里处理音量
+        if (isMuted) {
+            // 视频播放时保持静音状态
+            Log.d(TAG, "Video playing with muted state");
+        }
+    }
+
+    /**
+     * 处理视频暂停事件
+     */
+    private void handleVideoPause(Post.Clip clip, int position) {
+        Log.d(TAG, "Video paused: " + clip.url + " at position " + position);
+        // 视频暂停时，如果不在手动打断状态，可以恢复自动轮播
+        if (!isManuallyInterrupted && !isUserTouching) {
+            startAutoPlay();
+        }
+    }
+
+    /**
+     * 释放所有视频播放器资源
+     */
+    private void releaseAllVideoPlayers() {
+        if (mediaPagerAdapter != null) {
+            mediaPagerAdapter.releaseAllVideos();
+        }
+    }
+
+    /**
+     * 暂停所有视频播放
+     */
+    private void pauseAllVideoPlayers() {
+        if (mediaPagerAdapter != null) {
+            mediaPagerAdapter.pauseAllVideos();
+        }
+    }
+
+    /**
+     * 静音所有视频播放器
+     */
+    private void muteAllVideoPlayers() {
+        if (mediaPagerAdapter != null) {
+            // 通过RecyclerView来访问ViewHolder
+            RecyclerView recyclerView = (RecyclerView) binding.viewPager.getChildAt(0);
+            if (recyclerView != null) {
+                for (int i = 0; i < recyclerView.getAdapter().getItemCount(); i++) {
+                    RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(i);
+                    if (holder instanceof MediaPagerAdapter.VideoViewHolder) {
+                        MediaPagerAdapter.VideoViewHolder videoHolder = (MediaPagerAdapter.VideoViewHolder) holder;
+                        if (videoHolder.getVideoPlayerView() != null) {
+                            videoHolder.getVideoPlayerView().setMuted(isMuted);
+                        }
+                    }
+                }
+            }
         }
     }
 }

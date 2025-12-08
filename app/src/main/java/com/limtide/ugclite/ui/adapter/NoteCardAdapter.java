@@ -11,6 +11,7 @@ import java.io.Serializable;
 
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -19,6 +20,7 @@ import com.limtide.ugclite.ui.activity.PostDetailActivity;
 import com.limtide.ugclite.data.model.Post;
 import com.limtide.ugclite.databinding.NoteCardBinding;
 import com.limtide.ugclite.utils.LikeManager;
+import com.limtide.ugclite.utils.VideoThumbnailUtil;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -107,9 +109,11 @@ public class NoteCardAdapter extends RecyclerView.Adapter<NoteCardAdapter.ViewHo
                                 .placeholder(R.drawable.ic_empty_state)
                                 .error(R.drawable.ic_empty_state)
                                 .into(binding.coverImage);
+                        Log.d(TAG, "加载图片封面: " + clip.url);
                     } else {
-                        // 视频类型，默认显示视频缩略图图标
-                        binding.coverImage.setImageResource(R.drawable.ic_empty_state);
+                        // 视频类型，使用VideoThumbnailUtil生成缩略图
+                        loadVideoThumbnailForCard(binding, clip.url);
+                        Log.d(TAG, "加载视频封面: " + clip.url);
                     }
 
                     // 动态调整封面容器高度，支持3:4到4:3的宽高比
@@ -580,6 +584,74 @@ public class NoteCardAdapter extends RecyclerView.Adapter<NoteCardAdapter.ViewHo
         } finally {
             dataLock.readLock().unlock();
         }
+    }
+
+    /**
+     * 为NoteCard加载视频缩略图
+     */
+    private void loadVideoThumbnailForCard(NoteCardBinding binding, String videoUrl) {
+        if (videoUrl == null || videoUrl.isEmpty()) {
+            binding.coverImage.setImageResource(R.drawable.ic_empty_state);
+            return;
+        }
+
+        Log.d(TAG, "为NoteCard加载视频封面: " + videoUrl);
+
+        // 先检查是否有缓存
+        String cachedPath = VideoThumbnailUtil.getCachedThumbnail(context, videoUrl);
+        if (cachedPath != null) {
+            Log.d(TAG, "使用缓存的视频封面: " + cachedPath);
+            Glide.with(context)
+                    .load(cachedPath)
+                    .placeholder(R.drawable.ic_empty_state)
+                    .error(R.drawable.ic_empty_state)
+                    .into(binding.coverImage);
+            return;
+        }
+
+        // 没有缓存，使用Glide直接从视频提取第一帧
+        Glide.with(context)
+                .load(videoUrl)
+                .apply(new com.bumptech.glide.request.RequestOptions().frame(1000000)) // 提取第一帧
+                .placeholder(R.drawable.ic_empty_state)
+                .error(R.drawable.ic_empty_state)
+                .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e,
+                                              Object model,
+                                              com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                              boolean isFirstResource) {
+                        Log.w(TAG, "视频封面加载失败: " + videoUrl);
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(android.graphics.drawable.Drawable resource,
+                                                 Object model,
+                                                 com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                                 com.bumptech.glide.load.DataSource dataSource,
+                                                 boolean isFirstResource) {
+                        Log.d(TAG, "视频封面加载成功: " + videoUrl);
+
+                        // 异步生成缓存缩略图供下次使用
+                        VideoThumbnailUtil.generateThumbnail(context, videoUrl,
+                            new java.io.File(context.getCacheDir(), "thumb_" + Math.abs(videoUrl.hashCode()) + ".jpg"),
+                            new VideoThumbnailUtil.ThumbnailCallback() {
+                                @Override
+                                public void onThumbnailReady(@NonNull String thumbnailPath) {
+                                    Log.d(TAG, "NoteCard视频缩略图缓存完成: " + thumbnailPath);
+                                }
+
+                                @Override
+                                public void onThumbnailError(@NonNull Exception error) {
+                                    Log.w(TAG, "NoteCard视频缩略图缓存失败: " + videoUrl, error);
+                                }
+                            });
+
+                        return false;
+                    }
+                })
+                .into(binding.coverImage);
     }
 
     /**

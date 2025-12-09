@@ -17,6 +17,8 @@ import com.limtide.ugclite.databinding.ActivityMainBinding;
 import com.limtide.ugclite.ui.fragment.HomeFragment;
 import com.limtide.ugclite.ui.fragment.ProfileFragment;
 import com.limtide.ugclite.utils.PreferenceManager;
+import com.limtide.ugclite.utils.CacheManager;
+import com.limtide.ugclite.UGCApplication;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,14 +41,15 @@ public class MainActivity extends AppCompatActivity {
     }
     private TabState currentTab ;// = TabState.HOME
 
+    // 缓存管理器
+    private CacheManager cacheManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Log.d(TAG, "MainActivity创建");
 
-        // 检查并处理首次启动
-        // handleFirstLaunch(); // 暂时注释掉，方法未定义
 
 //        Intent intent = getIntent();
 //        boolean isOffline = intent.getBooleanExtra("is_offline_mode", false);
@@ -72,6 +75,9 @@ public class MainActivity extends AppCompatActivity {
         preferenceManager = PreferenceManager.getInstance(this);
         // loadUserPreferences(); // 暂时注释掉，方法未定义
 
+        // 初始化缓存管理器
+        initCacheManager();
+
         // 初始化Fragment成员变量
         initFragments();
 
@@ -85,6 +91,18 @@ public class MainActivity extends AppCompatActivity {
         showFragment(TabState.HOME);
     }
 
+
+      /**
+     * 初始化缓存管理器
+     */
+    private void initCacheManager() {
+        try {
+            cacheManager = CacheManager.getInstance(this);
+            Log.d(TAG, "缓存管理器初始化完成");
+        } catch (Exception e) {
+            Log.e(TAG, "初始化缓存管理器失败", e);
+        }
+    }
 
     //声明成员变量
     private void initFragments() {
@@ -223,6 +241,127 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 textView.setTextAppearance(this, R.style.BottomNavTabStyle);
             }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "MainActivity onResume");
+
+        // 检查是否需要清理缓存
+        checkAndCleanupCacheIfNeeded();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "MainActivity onDestroy");
+
+        // 清理资源
+        if (binding != null) {
+            binding = null;
+        }
+
+        // 清理Fragment引用
+        currentFragment = null;
+        homeFragment = null;
+        profileFragment = null;
+        fragmentManager = null;
+
+        // 缓存管理器不需要在Activity级别清理，由Application管理
+    }
+
+    /**
+     * 检查并清理缓存
+     */
+    private void checkAndCleanupCacheIfNeeded() {
+        if (cacheManager == null) return;
+
+        try {
+            // 检查是否需要执行缓存清理
+            if (cacheManager.shouldCleanup()) {
+                Log.d(TAG, "MainActivity触发缓存清理");
+
+                cacheManager.performCleanup(new CacheManager.CleanupCallback() {
+                    @Override
+                    public void onSuccess(CacheManager.CleanupResult result) {
+                        Log.d(TAG, "MainActivity缓存清理完成: " + result.toString());
+
+                        // 可以在这里添加Toast提示用户
+                        runOnUiThread(() -> {
+                            // Toast.makeText(MainActivity.this,
+                            //     "缓存清理完成，释放了 " + formatFileSize(result.totalCleanedSize),
+                            //     Toast.LENGTH_SHORT).show();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Log.e(TAG, "MainActivity缓存清理失败: " + error);
+                    }
+                });
+            } else {
+                Log.d(TAG, "MainActivity当前无需清理缓存");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "检查缓存清理时出错", e);
+        }
+    }
+
+    /**
+     * 格式化文件大小
+     */
+    private String formatFileSize(long size) {
+        if (size < 1024) return size + " B";
+        if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return String.format("%.1f MB", size / (1024.0 * 1024.0));
+        return String.format("%.1f GB", size / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    /**
+     * 手动触发缓存清理（可由外部调用）
+     */
+    public void manualCleanupCache() {
+        if (cacheManager == null) return;
+
+        Log.d(TAG, "手动触发缓存清理");
+        cacheManager.performCleanup();
+    }
+
+    /**
+     * 获取缓存统计信息
+     */
+    public void getCacheStats(CacheManager.CacheStatsCallback callback) {
+        if (cacheManager != null) {
+            cacheManager.getCacheStats(callback);
+        }
+    }
+
+    /**
+     * 紧急清理内存中的Post数据（针对9GB问题）
+     */
+    public void emergencyCleanupMemoryData() {
+        Log.w(TAG, "执行紧急内存数据清理");
+
+        try {
+            // 清理HomeFragment中的内存数据
+            if (homeFragment != null) {
+                homeFragment.emergencyCleanupMemory();
+            }
+
+            // 清理ProfileFragment中的内存数据（如果有的话）
+            if (profileFragment != null) {
+                // profileFragment.emergencyCleanupMemory(); // 如果有这个方法的话
+            }
+
+            // 强制垃圾回收
+            System.gc();
+
+            Log.w(TAG, "紧急内存数据清理完成");
+
+        } catch (Exception e) {
+            Log.e(TAG, "紧急内存清理失败", e);
         }
     }
 }

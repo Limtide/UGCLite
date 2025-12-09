@@ -42,6 +42,7 @@ import com.limtide.ugclite.databinding.ActivityPostDetailBinding;
 import com.limtide.ugclite.utils.LikeManager;
 import com.limtide.ugclite.utils.FollowManager;
 import com.limtide.ugclite.utils.MuteManager;
+import com.limtide.ugclite.ui.component.MusicPlayer;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -52,7 +53,7 @@ import java.util.Locale;
 
 /**
  * 作品详情页Activity
- * 按照111.md文档第二部分实现
+ *
  */
 public class PostDetailActivity extends AppCompatActivity {
 
@@ -84,6 +85,9 @@ public class PostDetailActivity extends AppCompatActivity {
     // 静音管理器
     private MuteManager muteManager;
 
+    // 音乐播放器
+    private MusicPlayer musicPlayer;
+
     // 自动轮播相关
     private Handler autoPlayHandler;
     private Runnable autoPlayRunnable;
@@ -108,6 +112,12 @@ public class PostDetailActivity extends AppCompatActivity {
             // 设置窗口转场动画
             setupWindowTransitions();
 
+            // 初始化音乐播放器（必须在获取Intent数据之前）
+            initMusicPlayer();
+
+            // 初始化静音管理器
+            initMuteManager();
+
             // 获取传递的数据
             getIntentData();
 
@@ -124,9 +134,6 @@ public class PostDetailActivity extends AppCompatActivity {
 
             // 初始化关注管理器
             followManager = FollowManager.getInstance(this);
-
-            // 初始化静音管理器
-            initMuteManager();
 
             // 初始化自动轮播Handler
             initAutoPlay();
@@ -217,6 +224,48 @@ public class PostDetailActivity extends AppCompatActivity {
         });
 
         Log.d(TAG, "静音管理器初始化完成，当前状态: " + isMuted);
+    }
+
+    /**
+     * 初始化音乐播放器
+     */
+    private void initMusicPlayer() {
+        musicPlayer = new MusicPlayer(this);
+        musicPlayer.setMusicPlayerListener(new MusicPlayer.MusicPlayerListener() {
+            @Override
+            public void onPrepared() {
+                Log.d(TAG, "音乐播放器准备完成");
+                if (!isMuted) {
+                    musicPlayer.play();
+                }
+            }
+
+            @Override
+            public void onCompletion() {
+                Log.d(TAG, "音乐播放完成");
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "音乐播放错误: " + error);
+            }
+
+            @Override
+            public void onPlay() {
+                Log.d(TAG, "开始播放音乐");
+            }
+
+            @Override
+            public void onPause() {
+                Log.d(TAG, "暂停播放音乐");
+            }
+
+            @Override
+            public void onStop() {
+                Log.d(TAG, "停止播放音乐");
+            }
+        });
+        Log.d(TAG, "音乐播放器初始化完成");
     }
 
     /**
@@ -326,13 +375,20 @@ public class PostDetailActivity extends AppCompatActivity {
                     Log.d(TAG, "Media clips: null or empty");
                 }
 
-                // 打印音乐信息
-                if (currentPost.music != null) {
+                // 打印音乐信息并开始播放
+                if (currentPost.music != null && currentPost.music.url != null && !currentPost.music.url.isEmpty()) {
                     Log.d(TAG, "Music volume: " + currentPost.music.volume);
                     Log.d(TAG, "Music seek time: " + currentPost.music.seekTime);
                     Log.d(TAG, "Music URL: " + currentPost.music.url);
+
+                    // 开始加载和播放音乐
+                    if (musicPlayer != null) {
+                        musicPlayer.setVolume(currentPost.music.volume);
+                        musicPlayer.loadMusic(currentPost.music.url, currentPost.music.seekTime);
+                        Log.d(TAG, "开始加载音乐: " + currentPost.music.url);
+                    }
                 } else {
-                    Log.d(TAG, "Music: null");
+                    Log.d(TAG, "Music: null or empty URL");
                 }
 
                 Log.d(TAG, "=== POST DATA LOG END ===");
@@ -1062,8 +1118,8 @@ public class PostDetailActivity extends AppCompatActivity {
         muteAllVideoPlayers();
 
         // 应用到音乐播放器（如果有）
-        if (currentPost != null && currentPost.music != null && mediaPagerAdapter != null) {
-            // 这里可以添加音乐播放器的静音逻辑
+        if (musicPlayer != null) {
+            musicPlayer.setMuted(isMuted);
             Log.d(TAG, "应用静音状态到音乐播放器: " + isMuted);
         }
 
@@ -1118,8 +1174,8 @@ public class PostDetailActivity extends AppCompatActivity {
         applyMuteStateToAllMedia();
 
         // 如果有音乐，恢复音乐播放（非静音状态下）
-        if (currentPost != null && currentPost.music != null && !isMuted) {
-            // 这里可以添加音乐播放器的恢复逻辑
+        if (musicPlayer != null && !isMuted) {
+            musicPlayer.play();
             Log.d(TAG, "恢复音乐播放");
         }
 
@@ -1138,8 +1194,8 @@ public class PostDetailActivity extends AppCompatActivity {
         pauseAllVideoPlayers();
 
         // 如果有音乐，暂停音乐播放
-        if (currentPost != null && currentPost.music != null) {
-            // 这里可以添加音乐播放器的暂停逻辑
+        if (musicPlayer != null) {
+            musicPlayer.pause();
             Log.d(TAG, "暂停音乐播放");
         }
     }
@@ -1325,6 +1381,13 @@ public class PostDetailActivity extends AppCompatActivity {
 
         // 释放所有视频播放器资源
         releaseAllVideoPlayers();
+
+        // 释放音乐播放器资源
+        if (musicPlayer != null) {
+            musicPlayer.release();
+            musicPlayer = null;
+            Log.d(TAG, "音乐播放器资源已释放");
+        }
 
         // 清理Glide请求以防止内存泄漏 - 使用ApplicationContext确保安全
         if (binding != null) {

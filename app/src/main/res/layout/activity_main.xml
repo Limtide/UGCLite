@@ -39,6 +39,8 @@
             app:tint="#161823" />
         <!--        </androidx.drawerlayout.widget.DrawerLayout>-->
         <!-- Tab 容器 -->
+
+        <!-- 搜索按钮 -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tab_layout"
             style="@style/CustomTabLayout"
@@ -46,8 +48,8 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@android:color/transparent"
-            app:tabMinWidth="0dp"
-            app:tabMaxWidth="100dp">
+            app:tabMaxWidth="100dp"
+            app:tabMinWidth="0dp">
 
             <com.google.android.material.tabs.TabItem
                 style="@style/CustomTabItem"
@@ -71,7 +73,6 @@
 
         </com.google.android.material.tabs.TabLayout>
 
-        <!-- 搜索按钮 -->
         <ImageView
             android:id="@+id/search_button"
             style="@style/SearchButtonStyle"

@@ -24,6 +24,7 @@
 
     <!--定义应用的根配置，所有应用级属性都在这里-->
     <application
+        android:name=".UGCApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

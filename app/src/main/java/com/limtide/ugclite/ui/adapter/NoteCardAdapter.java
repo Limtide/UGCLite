@@ -39,7 +39,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * - 所有数据修改操作都在写锁保护下进行
  * - 所有数据读取操作都在读锁保护下进行
  */
-public class NoteCardAdapter extends RecyclerView.Adapter<NoteCardAdapter.ViewHolder> {
+    public class NoteCardAdapter extends RecyclerView.Adapter<NoteCardAdapter.ViewHolder> {
 
     private static final String TAG = "WaterfallAdapter";
     private final List<Post> postList;

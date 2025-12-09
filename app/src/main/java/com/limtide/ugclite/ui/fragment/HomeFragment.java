@@ -63,8 +63,9 @@ public class HomeFragment extends Fragment {
     private int savedFirstVisiblePosition = 0;
     private Parcelable savedRecyclerViewState;
 
-    // 线程安全的数据存储
+    // 线程安全的数据存储 - 限制最大数量防止内存泄漏
     private volatile List<Post> savedPosts = Collections.synchronizedList(new ArrayList<>());
+    private static final int MAX_SAVED_POSTS = 60; // 限制最大保存数量，防止内存泄漏
 
     @Override
     public void onAttach(@NonNull Context context) {
@@ -87,12 +88,16 @@ public class HomeFragment extends Fragment {
                 currentCursor.set(savedInstanceState.getInt(KEY_CURRENT_CURSOR, 0));
                 savedRecyclerViewState = savedInstanceState.getParcelable(KEY_RECYCLER_STATE);
 
-                // 恢复数据列表
+                // 恢复数据列表 - 限制数量防止内存泄漏
                 savedPosts.clear();
                 ArrayList<Post> posts = (ArrayList<Post>) savedInstanceState.getSerializable(KEY_POSTS_DATA);
                 if (posts != null) {
-                    savedPosts.addAll(posts);
-                    Log.d(TAG, "恢复保存的数据，数量: " + savedPosts.size());
+                    // 限制恢复的数据数量，防止内存泄漏
+                    int maxCount = Math.min(posts.size(), MAX_SAVED_POSTS);
+                    for (int i = 0; i < maxCount; i++) {
+                        savedPosts.add(posts.get(i));
+                    }
+                    Log.d(TAG, "恢复保存的数据，限制后数量: " + savedPosts.size() + " (原始: " + posts.size() + ")");
                 }
 
                 Log.d(TAG, "状态恢复完成 - isFirst: " + isFirst + ", cursor: " + currentCursor.get() + ", posts: " + savedPosts.size());
@@ -102,7 +107,24 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    /**
+     * 清理过多的保存数据，防止内存泄漏
+     */
+    private void cleanupSavedPostsIfNeeded() {
+        if (savedPosts.size() > MAX_SAVED_POSTS) {
+            Log.w(TAG, "savedPosts数据过多(" + savedPosts.size() + ")，开始清理到" + MAX_SAVED_POSTS + "条");
 
+            synchronized (savedPosts) {
+                // 保留最新的数据，删除最旧的
+                int removeCount = savedPosts.size() - MAX_SAVED_POSTS;
+                for (int i = 0; i < removeCount; i++) {
+                    savedPosts.remove(0); // 移除最旧的数据
+                }
+            }
+
+            Log.w(TAG, "savedPosts清理完成，当前数量: " + savedPosts.size());
+        }
+    }
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -232,6 +254,9 @@ public class HomeFragment extends Fragment {
     private void refreshFeedData() {
         stateLock.lock();
         try {
+            // 清理过期的savedPosts数据，防止内存泄漏
+            cleanupSavedPostsIfNeeded();
+
             // 原子性地重置状态
             hasMoreData.set(true); // 重置为有更多数据
             currentCursor.set(0); // 重置游标到第一页
@@ -439,11 +464,6 @@ public class HomeFragment extends Fragment {
         Log.d(TAG,"HomeFragment is onStop");
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        Log.d(TAG,"HomeFragment is onDestroy");
-    }
 
     @Override
     public void onDetach() {
@@ -823,4 +843,51 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "HomeFragment onDestroy - 开始清理内存");
+
+        // 强制清理savedPosts数据，防止内存泄漏
+        if (savedPosts != null) {
+            int size = savedPosts.size();
+            savedPosts.clear();
+            Log.w(TAG, "HomeFragment onDestroy - 清理了 " + size + " 个Post对象");
+        }
+
+        // 清理其他引用
+        if (binding != null) {
+            binding = null;
+        }
+        notecardAdapter = null;
+
+        // 强制垃圾回收
+        //System.gc();
+        Log.d(TAG, "HomeFragment onDestroy - 内存清理完成");
+    }
+
+    /**
+     * 强制清理内存中的Post数据（紧急使用）
+     */
+    public void emergencyCleanupMemory() {
+        Log.w(TAG, "执行紧急内存清理");
+
+        if (savedPosts != null) {
+            int size = savedPosts.size();
+            savedPosts.clear();
+            Log.w(TAG, "紧急清理：移除了 " + size + " 个Post对象");
+        }
+
+        if (notecardAdapter != null) {
+            notecardAdapter.setPosts(new ArrayList<>());
+            Log.w(TAG, "紧急清理：清空了适配器数据");
+        }
+
+        // 重置状态
+        currentCursor.set(0);
+        hasMoreData.set(true);
+        isLoading.set(false);
+
+        Log.w(TAG, "紧急内存清理完成");
+    }
 }

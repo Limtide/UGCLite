@@ -325,20 +325,36 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             // 检查是否有保存的状态需要恢复
             VideoState savedState = videoStates.get(clip.url);
             if (savedState != null) {
-                Log.d(TAG, "恢复视频状态 - position: " + savedState.position + ", isPlaying: " + savedState.isPlaying);
+                Log.d(TAG, "恢复视频状态 - URL: " + clip.url.substring(clip.url.lastIndexOf('/') + 1) +
+                          ", position: " + savedState.position + ", isPlaying: " + savedState.isPlaying);
 
                 // 创建状态恢复监听器
                 androidx.media3.common.Player.Listener stateRestoreListener = new androidx.media3.common.Player.Listener() {
                     @Override
                     public void onPlaybackStateChanged(int playbackState) {
                         if (playbackState == androidx.media3.common.Player.STATE_READY) {
-                            Log.d(TAG, "视频准备就绪，恢复状态 - position: " + savedState.position);
+                            Log.d(TAG, "视频准备就绪，开始恢复状态");
+
+                            // 恢复静音状态
+                            holder.videoPlayerView.setMuted(savedState.isMuted);
+
+                            // 恢复播放位置
                             if (savedState.position > 0) {
                                 holder.videoPlayerView.seekTo(savedState.position);
+                                Log.d(TAG, "恢复播放位置: " + savedState.position);
                             }
+
+                            // 恢复播放状态（延迟一点时间确保seek完成）
                             if (savedState.isPlaying) {
-                                holder.videoPlayerView.start();
+                                // 延迟100ms后恢复播放，确保seek完成
+                                holder.videoPlayerView.postDelayed(() -> {
+                                    if (holder.videoPlayerView != null) {
+                                        holder.videoPlayerView.start();
+                                        Log.d(TAG, "恢复播放状态");
+                                    }
+                                }, 100);
                             }
+
                             // 移除监听器避免重复调用
                             holder.videoPlayerView.removeOnPreparedListener(this);
                         }
@@ -346,7 +362,9 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
                     @Override
                     public void onPlayerError(androidx.media3.common.PlaybackException error) {
-                        Log.e(TAG, "视频播放错误", error);
+                        Log.e(TAG, "视频状态恢复时播放错误", error);
+                        // 清理错误状态，避免下次恢复时出错
+                        videoStates.remove(clip.url);
                         // 移除监听器避免重复调用
                         holder.videoPlayerView.removeOnPreparedListener(this);
                     }
@@ -354,6 +372,8 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
                 // 添加状态恢复监听器
                 holder.videoPlayerView.setOnPreparedListener(stateRestoreListener);
+            } else {
+                Log.d(TAG, "没有找到保存的视频状态，使用默认状态");
             }
 
             // 设置视频事件监听器
@@ -470,8 +490,11 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     // 用于跟踪所有活跃的VideoPlayerView实例
     private List<VideoPlayerView> videoPlayerViews = new ArrayList<>();
 
-    // 保存视频状态信息的映射
+    // 保存视频状态信息的映射 - 只保存当前页面和相邻页面的状态
     private java.util.Map<String, VideoState> videoStates = new java.util.HashMap<>();
+
+    // 当前可见的页面位置，用于主动释放非相邻页面资源
+    private int currentPosition = 0;
 
     /**
      * 视频状态信息类
@@ -505,15 +528,49 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
      */
     public void releaseAllVideos() {
         Log.d(TAG, "释放所有视频资源，当前有 " + videoPlayerViews.size() + " 个视频实例");
+
+        // 遍历释放所有视频播放器
         for (VideoPlayerView videoPlayer : videoPlayerViews) {
             if (videoPlayer != null) {
-                videoPlayer.release();
+                try {
+                    videoPlayer.release();
+                    // 从父容器中移除
+                    if (videoPlayer.getParent() instanceof android.view.ViewGroup) {
+                        android.view.ViewGroup parent = (android.view.ViewGroup) videoPlayer.getParent();
+                        parent.removeView(videoPlayer);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "释放视频播放器时出错", e);
+                }
             }
         }
+
+        // 清空列表
         videoPlayerViews.clear();
+
         // 清理保存的状态
         videoStates.clear();
-        Log.d(TAG, "清理所有视频状态信息");
+
+        Log.d(TAG, "清理所有视频资源完成，剩余实例: " + videoPlayerViews.size() + ", 状态数: " + videoStates.size());
+    }
+
+    /**
+     * 清理过期的视频状态，当状态数量过多时调用
+     */
+    public void cleanupOldStatesIfNecessary() {
+        // 如果状态数量超过20个，清理最旧的一半状态
+        if (videoStates.size() > 20) {
+            List<String> keys = new ArrayList<>(videoStates.keySet());
+            int toRemove = keys.size() / 2;
+
+            for (int i = 0; i < toRemove; i++) {
+                String key = keys.get(i);
+                videoStates.remove(key);
+                Log.d(TAG, "清理过期视频状态: " + key);
+            }
+
+            Log.d(TAG, "清理完成，剩余状态数: " + videoStates.size());
+        }
     }
 
 
@@ -545,14 +602,104 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         }
     }
 
+    /**
+     * 设置当前页面位置，主动释放非相邻页面的视频资源
+     */
+    public void setCurrentPosition(int position) {
+        this.currentPosition = position;
+        releaseNonAdjacentVideos(position);
+        // 注意：不清理videoStates，保留所有视频状态以便恢复播放
+        Log.d(TAG, "设置当前页面位置: " + position + ", 保留视频状态数: " + videoStates.size());
+    }
+
+    /**
+     * 释放非相邻页面的视频资源
+     */
+    private void releaseNonAdjacentVideos(int currentPosition) {
+        List<VideoPlayerView> toRemove = new ArrayList<>();
+
+        for (VideoPlayerView videoPlayer : videoPlayerViews) {
+            // 获取视频播放器对应的页面位置
+            int playerPosition = getVideoPlayerPosition(videoPlayer);
+
+            // 如果不是当前页面或相邻页面，则释放
+            if (Math.abs(playerPosition - currentPosition) > 1) {
+                Log.d(TAG, "释放非相邻页面视频资源，当前位置: " + currentPosition + ", 播放器位置: " + playerPosition);
+                toRemove.add(videoPlayer);
+            }
+        }
+
+        // 移除并释放非相邻页面的视频播放器
+        for (VideoPlayerView videoPlayer : toRemove) {
+            removeVideoPlayerView(videoPlayer);
+        }
+    }
+
+    /**
+     * 获取视频播放器对应的页面位置
+     */
+    private int getVideoPlayerPosition(VideoPlayerView videoPlayer) {
+        String videoUrl = videoPlayer.getVideoUrl();
+        if (videoUrl != null && mediaClips != null) {
+            for (int i = 0; i < mediaClips.size(); i++) {
+                Post.Clip clip = mediaClips.get(i);
+                if (clip.url != null && clip.url.equals(videoUrl)) {
+                    return i;
+                }
+            }
+        }
+        return -1; // 未找到对应位置
+    }
+
+    /**
+     * 清理过期的视频状态，只保留当前页面和相邻页面的状态
+     */
+    private void cleanupOldVideoStates(int currentPosition) {
+        List<String> toRemove = new ArrayList<>();
+
+        for (Map.Entry<String, VideoState> entry : videoStates.entrySet()) {
+            String videoUrl = entry.getKey();
+            int position = getClipPositionByUrl(videoUrl);
+
+            // 如果不是当前页面或相邻页面，则清理状态
+            if (position != -1 && Math.abs(position - currentPosition) > 1) {
+                toRemove.add(videoUrl);
+            }
+        }
+
+        // 移除过期的状态
+        for (String videoUrl : toRemove) {
+            videoStates.remove(videoUrl);
+            Log.d(TAG, "清理过期视频状态: " + videoUrl);
+        }
+    }
+
+    /**
+     * 根据URL获取Clip的位置
+     */
+    private int getClipPositionByUrl(String videoUrl) {
+        if (videoUrl != null && mediaClips != null) {
+            for (int i = 0; i < mediaClips.size(); i++) {
+                Post.Clip clip = mediaClips.get(i);
+                if (clip.url != null && clip.url.equals(videoUrl)) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
     @Override
     public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
         super.onViewRecycled(holder);
         if (holder instanceof VideoViewHolder) {
             VideoViewHolder videoHolder = (VideoViewHolder) holder;
             if (videoHolder.videoPlayerView != null) {
-                // 保存当前视频状态
+                // 获取视频播放器对应的页面位置
+                int holderPosition = holder.getAdapterPosition();
                 String videoUrl = videoHolder.videoPlayerView.getVideoUrl();
+
+                // 保存所有视频状态，不限制页面位置
                 if (videoUrl != null) {
                     long currentPosition = videoHolder.videoPlayerView.getCurrentPosition();
                     boolean isPlaying = videoHolder.videoPlayerView.isPlaying();
@@ -561,10 +708,11 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                     VideoState state = new VideoState(currentPosition, isPlaying, isMuted);
                     videoStates.put(videoUrl, state);
 
-                    Log.d(TAG, "保存视频状态 - URL: " + videoUrl +
-                              ", position: " + currentPosition +
+                    Log.d(TAG, "保存视频状态 - Position: " + holderPosition +
+                              ", URL: " + videoUrl.substring(videoUrl.lastIndexOf('/') + 1) +
+                              ", playPosition: " + currentPosition +
                               ", isPlaying: " + isPlaying +
-                              ", isMuted: " + isMuted);
+                              ", 总状态数: " + videoStates.size());
                 }
 
                 // 从跟踪列表中移除
@@ -582,7 +730,9 @@ public class MediaPagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 // 清空holder的引用
                 videoHolder.videoPlayerView = null;
 
-                Log.d(TAG, "VideoViewHolder被回收，保存视频状态，剩余实例: " + videoPlayerViews.size());
+                Log.d(TAG, "VideoViewHolder被回收 - Position: " + holderPosition +
+                          ", 剩余视频实例: " + videoPlayerViews.size() +
+                          ", 保存的状态数: " + videoStates.size());
             }
         }
     }

@@ -209,7 +209,7 @@ public class Post implements Parcelable, Serializable {
 
     public static class Clip implements Parcelable, Serializable {
         @SerializedName("type")
-        public int type; // 0：图片，1：视频
+        public int type; // 0：图片，1：视频，2：音频(MP3)
 
         @SerializedName("width")
         public int width;

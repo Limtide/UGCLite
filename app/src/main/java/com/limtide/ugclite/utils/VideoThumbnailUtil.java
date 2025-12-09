@@ -27,6 +27,10 @@ public class VideoThumbnailUtil {
 
     private static final String TAG = "VideoThumbnailUtil";
 
+    // 严格限制缩略图缓存（解决4GB问题）
+    private static final long MAX_THUMBNAIL_CACHE_SIZE = 10 * 1024 * 1024; // 10MB限制
+    private static final int MAX_THUMBNAIL_FILES = 50; // 最多50个缩略图
+
     /**
      * 从视频URL生成缩略图并保存到本地缓存
      * @param context 上下文
@@ -218,14 +222,25 @@ public class VideoThumbnailUtil {
     }
 
     /**
-     * 异步生成缩略图（后台任务，不影响UI）
+     * 异步生成缩略图（后台任务，不影响UI）- 严格限制版本
      */
     private static void generateThumbnailAsync(@NonNull Context context, @NonNull String videoUrl) {
+        // 立即强制检查和清理缓存（解决4GB问题）
+        if (!isThumbnailGenerationAllowed(context)) {
+            Log.w(TAG, "缩略图缓存超限，禁止生成: " + videoUrl);
+            return;
+        }
+
         // 在后台线程中生成缓存
         new Thread(() -> {
             try {
                 File cacheFile = getCacheFile(context, videoUrl);
                 if (!cacheFile.exists()) {
+                    // 生成前再次检查限制
+                    if (!isThumbnailGenerationAllowed(context)) {
+                        Log.w(TAG, "缩略图缓存超限，停止生成");
+                        return;
+                    }
                     generateThumbnail(context, videoUrl, cacheFile, null);
                 }
             } catch (Exception e) {
@@ -235,11 +250,131 @@ public class VideoThumbnailUtil {
     }
 
     /**
+     * 检查是否允许生成缩略图（解决4GB问题）
+     */
+    private static boolean isThumbnailGenerationAllowed(@NonNull Context context) {
+        try {
+            // 立即强制清理缩略图缓存
+            forceCleanupThumbnailsIfNeeded(context);
+
+            // 检查当前缓存状态
+            long currentSize = getThumbnailCacheSize(context);
+            int currentCount = getThumbnailCacheFileCount(context);
+
+            if (currentSize > MAX_THUMBNAIL_CACHE_SIZE || currentCount > MAX_THUMBNAIL_FILES) {
+                Log.w(TAG, "缩略图缓存超限: " + currentCount + "个文件，" +
+                     formatFileSize(currentSize) + " (限制: " + MAX_THUMBNAIL_FILES + "个，" +
+                     formatFileSize(MAX_THUMBNAIL_CACHE_SIZE) + ")");
+
+                // 再次清理
+                forceCleanupThumbnailsToLimit(context);
+
+                // 最后检查
+                currentSize = getThumbnailCacheSize(context);
+                currentCount = getThumbnailCacheFileCount(context);
+
+                return currentSize <= MAX_THUMBNAIL_CACHE_SIZE && currentCount <= MAX_THUMBNAIL_FILES;
+            }
+
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "检查缩略图生成权限失败", e);
+            return false;
+        }
+    }
+
+    /**
+     * 强制清理缩略图缓存到限制范围内
+     */
+    private static void forceCleanupThumbnailsToLimit(@NonNull Context context) {
+        try {
+            File cacheDir = context.getCacheDir();
+            File[] thumbnailFiles = cacheDir.listFiles((dir, name) ->
+                name.startsWith("thumb_") && name.endsWith(".jpg"));
+
+            if (thumbnailFiles == null || thumbnailFiles.length == 0) return;
+
+            // 按修改时间排序（最旧的在前面）
+            java.util.Arrays.sort(thumbnailFiles, (f1, f2) -> Long.compare(f1.lastModified(), f2.lastModified()));
+
+            long totalSize = 0;
+            int fileCount = 0;
+            long cleanedSize = 0;
+            int cleanedCount = 0;
+
+            // 计算当前总量
+            for (File file : thumbnailFiles) {
+                totalSize += file.length();
+                fileCount++;
+            }
+
+            // 删除最旧的文件直到符合限制
+            for (File file : thumbnailFiles) {
+                if (totalSize <= MAX_THUMBNAIL_CACHE_SIZE && fileCount <= MAX_THUMBNAIL_FILES) {
+                    break;
+                }
+
+                long fileSize = file.length();
+                if (file.delete()) {
+                    totalSize -= fileSize;
+                    fileCount--;
+                    cleanedSize += fileSize;
+                    cleanedCount++;
+                    Log.d(TAG, "删除缩略图文件: " + file.getName() +
+                              " (" + formatFileSize(fileSize) + ")");
+                }
+            }
+
+            if (cleanedCount > 0) {
+                Log.w(TAG, "缩略图缓存清理完成: 删除了" + cleanedCount + "个文件，" +
+                          "释放了" + formatFileSize(cleanedSize) +
+                          " (剩余: " + fileCount + "个文件，" + formatFileSize(totalSize) + ")");
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "强制清理缩略图缓存失败", e);
+        }
+    }
+
+    /**
+     * 强制清理缩略图缓存（如果需要）
+     */
+    private static void forceCleanupThumbnailsIfNeeded(@NonNull Context context) {
+        try {
+            long currentSize = getThumbnailCacheSize(context);
+            int currentCount = getThumbnailCacheFileCount(context);
+
+            if (currentSize > MAX_THUMBNAIL_CACHE_SIZE || currentCount > MAX_THUMBNAIL_FILES) {
+                Log.w(TAG, "强制清理缩略图缓存: " + currentCount + "个文件，" +
+                     formatFileSize(currentSize));
+                forceCleanupThumbnailsToLimit(context);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "强制清理缩略图缓存检查失败", e);
+        }
+    }
+
+    /**
      * 缩略图生成回调接口
      */
     public interface ThumbnailCallback {
         void onThumbnailReady(@NonNull String thumbnailPath);
         void onThumbnailError(@NonNull Exception error);
+    }
+
+    /**
+     * 检查并执行缩略图缓存清理
+     */
+    private static void checkAndCleanupThumbnailsIfNeeded(@NonNull Context context) {
+        try {
+            CacheManager cacheManager = CacheManager.getInstance(context);
+            if (cacheManager.shouldCleanup()) {
+                Log.d(TAG, "触发缩略图缓存清理");
+                cacheManager.performCleanup();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "检查缩略图缓存清理时出错", e);
+        }
     }
 
     /**
@@ -258,5 +393,89 @@ public class VideoThumbnailUtil {
                 }
             }
         }
+    }
+
+    /**
+     * 获取缩略图缓存大小
+     */
+    public static long getThumbnailCacheSize(@NonNull Context context) {
+        File cacheDir = context.getCacheDir();
+        File[] thumbnailFiles = cacheDir.listFiles((dir, name) ->
+            name.startsWith("thumb_") && name.endsWith(".jpg"));
+
+        if (thumbnailFiles == null) return 0;
+
+        long totalSize = 0;
+        for (File file : thumbnailFiles) {
+            totalSize += file.length();
+        }
+        return totalSize;
+    }
+
+    /**
+     * 获取缩略图缓存文件数量
+     */
+    public static int getThumbnailCacheFileCount(@NonNull Context context) {
+        File cacheDir = context.getCacheDir();
+        File[] thumbnailFiles = cacheDir.listFiles((dir, name) ->
+            name.startsWith("thumb_") && name.endsWith(".jpg"));
+
+        return thumbnailFiles != null ? thumbnailFiles.length : 0;
+    }
+
+    /**
+     * 获取缩略图缓存统计信息
+     */
+    public static String getThumbnailCacheStats(@NonNull Context context) {
+        long size = getThumbnailCacheSize(context);
+        int count = getThumbnailCacheFileCount(context);
+
+        return "缩略图缓存统计: " +
+               "文件数量=" + count + ", " +
+               "总大小=" + formatFileSize(size) + ", " +
+               "平均大小=" + (count > 0 ? formatFileSize(size / count) : "0 B");
+    }
+
+    /**
+     * 格式化文件大小
+     */
+    private static String formatFileSize(long size) {
+        if (size < 1024) return size + " B";
+        if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return String.format("%.1f MB", size / (1024.0 * 1024.0));
+        return String.format("%.1f GB", size / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    /**
+     * 强制清理过期的缩略图缓存
+     * @param context 上下文
+     * @param maxAgeDays 最大保留天数
+     */
+    public static void cleanupExpiredThumbnails(@NonNull Context context, int maxAgeDays) {
+        File cacheDir = context.getCacheDir();
+        File[] thumbnailFiles = cacheDir.listFiles((dir, name) ->
+            name.startsWith("thumb_") && name.endsWith(".jpg"));
+
+        if (thumbnailFiles == null) return;
+
+        long currentTime = System.currentTimeMillis();
+        long maxAge = maxAgeDays * 24 * 60 * 60 * 1000L; // 转换为毫秒
+        int deletedCount = 0;
+        long deletedSize = 0;
+
+        for (File file : thumbnailFiles) {
+            if (currentTime - file.lastModified() > maxAge) {
+                long fileSize = file.length();
+                if (file.delete()) {
+                    deletedCount++;
+                    deletedSize += fileSize;
+                    Log.d(TAG, "删除过期缩略图: " + file.getName() +
+                              ", 大小: " + formatFileSize(fileSize));
+                }
+            }
+        }
+
+        Log.d(TAG, "清理过期缩略图完成: 删除了 " + deletedCount +
+                  " 个文件, 释放了 " + formatFileSize(deletedSize) + " 空间");
     }
 }
